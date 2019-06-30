@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""magic.py: Applies magic formula to stock list."""
+"""magic.py - Seleciona as melhores ações baseadas na Magic Formula de Joel Greenblatt
+e no método Clube do Valor de Ramiro Gomes, métodos apresentados no curso
+DMA - Descomplicando o Mercado de Ações."""
 
 __author__  = "Felipe Scrochio Custódio"
 __email__   = "felipe.crochi@gmail.com"
@@ -11,12 +13,18 @@ import pandas as pd
 import pygsheets
 from tqdm import tqdm
 import math
+from halo import Halo
+import logzero
 from logzero import logger
-
+logzero.logfile("logfile.log", maxBytes=1e6, backupCount=3)
 
 url_fundamentus = "http://www.fundamentus.com.br/resultado.php"
 url_papel = "http://www.fundamentus.com.br/detalhes.php?papel="
-setores_financeiros = ["financeiros", "holdings diversificadas", "previdência e seguros", "serviços financeiros diversos"]
+filtro_setores = ["Financeiros", "Holdings Diversificadas", "Previdência e Seguros", "Serviços Financeiros Diversos"]
+hyperlink_formula = "=HYPERLINK(CONCATENATE(\"http://www.fundamentus.com.br/detalhes.php?papel=\", A2),A2)"
+
+carteira_clube_anterior = pd.read_json("carteira_clube.json")
+carteira_magic_anterior = pd.read_json("carteira_magic.json")
 
 
 logger.debug("Lendo a tabela de ações da Fundamentus...")
@@ -39,24 +47,19 @@ for column in stocks:
 logger.info("Limpeza dos dados concluída.")
 
 logger.debug("Buscando informações sobre os papéis...")
-pbar = tqdm(stocks["Papel"])
-tipos = []
-empresas = []
-setores = []
-for papel in pbar:
-    pbar.set_description("Processando papel %s" % papel)
-    try:
-        info = pd.read_html(url_papel + papel)[0]
-    except Exception as e:
-        logger.exception(e)
-    tipos.append(info[1][1])
-    empresas.append(info[1][2])
-    setores.append(info[1][3])
-logger.info("Informações sobre os papéis obtidas.")
+try:
+    stocks_info = pd.read_json("stocks_info.json")
+    stocks = (stocks.merge(stocks_info, left_on='Papel', right_on='Papel'))
+    logger.info("Informações sobre os papéis obtidas.")
+except Exception as e:
+    logger.exception(e)
 
-stocks["Tipo"] = tipos
-stocks["Empresa"] = empresas
-stocks["Setor"] = setores
+logger.debug("Removendo empresas do setor financeiro...")
+try:
+    stocks = stocks[~stocks["Setor"].isin(filtro_setores)]
+    logger.info("Empresas removidas com sucesso.")
+except Exception as e:
+    logger.exception(e)
 
 logger.debug("Removendo empresas com liquidez inferior à R$150.000...")
 try:
@@ -74,42 +77,47 @@ except Exception as e:
 
 logger.debug("Gerando rank EV/Ebit...")
 try:
-    stocks.sort_values("EV/EBIT", axis=0, ascending=True, inplace=True, kind='quicksort', na_position='last')
+    stocks.sort_values("EV/EBIT", axis=0, ascending=True, inplace=True, kind='mergesort', na_position='last')
     stocks_magic["Rank EV/Ebit"] = stocks_magic["EV/EBIT"].rank(method="min")
     logger.info("Rank EV/Ebit gerado.")
 except Exception as e:
     logger.exception(e)
 
+logger.debug("Gerando planilha Clube do Valor...")
+try:
+    stocks_clube = stocks_magic.copy(deep=True)
+    stocks_clube.sort_values('Rank EV/Ebit', axis=0, ascending=True, inplace=True, kind='mergesort', na_position='last')
+    logger.info("Planilha Clube do Valor completa.")
+except Exception as e:
+    logger.exception(e)
+
 logger.debug("Gerando rank ROIC...")
 try:
-    stocks_magic.sort_values("ROIC", axis=0, ascending=False, inplace=True, kind='quicksort', na_position='last')
+    stocks_magic.sort_values("ROIC", axis=0, ascending=False, inplace=True, kind='mergesort', na_position='last')
     stocks_magic["Rank ROIC"] = stocks_magic["ROIC"].rank(method="max")
     logger.info("Rank ROIC gerado.")
 except Exception as e:
     logger.exception(e)
 
-logger.debug("Gerando Magic Formula...")
+logger.debug("Gerando planilha Magic Formula...")
 try:
     stocks_magic['MagicFormula'] = (stocks_magic['Rank EV/Ebit'] + stocks_magic['Rank ROIC']).astype(int)
-    stocks_magic.sort_values('MagicFormula', axis=0, ascending=True, inplace=True, kind='quicksort', na_position='last')
-    logger.info("Magic Formula gerada.")
+    stocks_magic.sort_values('MagicFormula', axis=0, ascending=True, inplace=True, kind='mergesort', na_position='last')
+    logger.info("Planilha Magic Formula completa.")
 except Exception as e:
     logger.exception(e)
 
-logger.debug("Removendo empresas do setor financeiro...")
+logger.debug("Gerando carteiras de investimentos...")
 try:
-    stocks_magic = stocks_magic[stocks_magic["Setor"].lower() not in setores_financeiros]
-    logger.info("Empresas removidas.")
+    carteira_magic = stocks_magic.head(30)[['Papel', 'Tipo', 'Empresa', 'Setor']]
+    carteira_clube = stocks_clube.head(30)[['Papel', 'Tipo', 'Empresa', 'Setor']]
+    acoes_em_comum = pd.merge(carteira_magic, carteira_clube, how='inner')
+    carteira_magic.to_json(r'carteira_magic.json')
+    carteira_clube.to_json(r'carteira_clube.json')
+    acoes_em_comum.to_json(r'acoes_em_comum.json')
 except Exception as e:
     logger.exception(e)
-
-logger.debug("Gerando carteira de investimentos...")
-try:
-    carteira = stocks_magic.head(30)[['Papel', 'Tipo', 'Empresa', 'Setor']]
-    carteira.to_json(r'carteira.json')
-except Exception as e:
-    logger.exception(e)
-logger.info("Carteira de investimentos gerada.")
+logger.info("Carteiras de investimentos gerada.")
 
 logger.debug("Autenticando com Google Sheets...")
 try:
@@ -127,13 +135,19 @@ except Exception as e:
 
 stocks_sheet = sh[0]
 magic_sheet = sh[1]
-carteira_sheet = sh[2]
+clube_sheet = sh[2]
+carteira_magic_sheet = sh[3]
+carteira_clube_sheet = sh[4]
+acoes_em_comum_sheet = sh[5]
 
 logger.debug("Escrevendo dados na planilha...")
 try:
     stocks_sheet.set_dataframe(stocks,(1,1))
     magic_sheet.set_dataframe(stocks_magic,(1,1))
-    carteira_sheet.set_dataframe(carteira, (1,1))
+    clube_sheet.set_dataframe(stocks_clube,(1,1))
+    carteira_magic_sheet.set_dataframe(carteira_magic, (1,1))
+    carteira_clube_sheet.set_dataframe(carteira_clube, (1,1))
+    acoes_em_comum_sheet.set_dataframe(acoes_em_comum, (1,1))
     logger.info("Dados escritos com sucesso!")
 except Exception as e:
     logger.exception(e)
