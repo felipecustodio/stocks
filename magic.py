@@ -16,12 +16,13 @@ import math
 from halo import Halo
 import logzero
 from logzero import logger
+
+
 logzero.logfile("logfile.log", maxBytes=1e6, backupCount=3)
 
 url_fundamentus = "http://www.fundamentus.com.br/resultado.php"
 url_papel = "http://www.fundamentus.com.br/detalhes.php?papel="
 filtro_setores = ["Financeiros", "Holdings Diversificadas", "Previdência e Seguros", "Serviços Financeiros Diversos"]
-hyperlink_formula = "=HYPERLINK(CONCATENATE(\"http://www.fundamentus.com.br/detalhes.php?papel=\", A2),A2)"
 
 carteira_clube_anterior = pd.read_json("carteira_clube.json")
 carteira_magic_anterior = pd.read_json("carteira_magic.json")
@@ -54,13 +55,6 @@ try:
 except Exception as e:
     logger.exception(e)
 
-logger.debug("Removendo empresas do setor financeiro...")
-try:
-    stocks = stocks[~stocks["Setor"].isin(filtro_setores)]
-    logger.info("Empresas removidas com sucesso.")
-except Exception as e:
-    logger.exception(e)
-
 logger.debug("Removendo empresas com liquidez inferior à R$150.000...")
 try:
     stocks_magic = stocks[stocks["Liq.2meses"] >= 150000]
@@ -77,17 +71,17 @@ except Exception as e:
 
 logger.debug("Gerando rank EV/Ebit...")
 try:
-    stocks.sort_values("EV/EBIT", axis=0, ascending=True, inplace=True, kind='mergesort', na_position='last')
+    stocks_magic.sort_values("EV/EBIT", axis=0, ascending=True, inplace=True, kind='mergesort', na_position='last')
     stocks_magic["Rank EV/Ebit"] = stocks_magic["EV/EBIT"].rank(method="min")
     logger.info("Rank EV/Ebit gerado.")
 except Exception as e:
     logger.exception(e)
 
-logger.debug("Gerando planilha Clube do Valor...")
+logger.debug("Gerando rank Clube do Valor...")
 try:
     stocks_clube = stocks_magic.copy(deep=True)
     stocks_clube.sort_values('Rank EV/Ebit', axis=0, ascending=True, inplace=True, kind='mergesort', na_position='last')
-    logger.info("Planilha Clube do Valor completa.")
+    logger.info("Rank Clube do Valor concluído.")
 except Exception as e:
     logger.exception(e)
 
@@ -99,13 +93,23 @@ try:
 except Exception as e:
     logger.exception(e)
 
-logger.debug("Gerando planilha Magic Formula...")
+logger.debug("Gerando rank Magic Formula...")
 try:
     stocks_magic['MagicFormula'] = (stocks_magic['Rank EV/Ebit'] + stocks_magic['Rank ROIC']).astype(int)
     stocks_magic.sort_values('MagicFormula', axis=0, ascending=True, inplace=True, kind='mergesort', na_position='last')
-    logger.info("Planilha Magic Formula completa.")
+    logger.info("Magic Formula concluída.")
 except Exception as e:
     logger.exception(e)
+
+
+logger.debug("Removendo empresas do setor financeiro...")
+try:
+    stocks_magic = stocks_magic[~stocks_magic["Setor"].isin(filtro_setores)]
+    stocks_clube = stocks_clube[~stocks_clube["Setor"].isin(filtro_setores)]
+    logger.info("Empresas removidas com sucesso.")
+except Exception as e:
+    logger.exception(e)
+
 
 logger.debug("Gerando carteiras de investimentos...")
 try:
