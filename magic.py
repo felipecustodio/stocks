@@ -8,11 +8,9 @@ DMA - Descomplicando o Mercado de Ações."""
 __author__  = "Felipe Scrochio Custódio"
 __email__   = "felipe.crochi@gmail.com"
 
-import re
 import pandas as pd
 import pygsheets
 from tqdm import tqdm
-import math
 from halo import Halo
 import logzero
 from logzero import logger
@@ -21,7 +19,7 @@ logzero.logfile("logfile.log", maxBytes=1e6, backupCount=3)
 url_fundamentus = "http://www.fundamentus.com.br/resultado.php"
 url_papel = "http://www.fundamentus.com.br/detalhes.php?papel="
 filtro_setores = ["Financeiros", "Holdings Diversificadas", "Previdência e Seguros", "Serviços Financeiros Diversos"]
-hyperlink_formula = "=HYPERLINK(CONCATENATE(\"http://www.fundamentus.com.br/detalhes.php?papel=\", A2),A2)"
+
 
 carteira_clube_anterior = pd.read_json("carteira_clube.json")
 carteira_magic_anterior = pd.read_json("carteira_magic.json")
@@ -111,13 +109,27 @@ logger.debug("Gerando carteiras de investimentos...")
 try:
     carteira_magic = stocks_magic.head(30)[['Papel', 'Tipo', 'Empresa', 'Setor']]
     carteira_clube = stocks_clube.head(30)[['Papel', 'Tipo', 'Empresa', 'Setor']]
+
+    carteira_magic_anterior = carteira_magic_anterior[~carteira_magic_anterior["Status"].isin("Saindo")]
+    carteira_clube_anterior = carteira_clube_anterior[~carteira_clube_anterior["Status"].isin("Saindo")]
+
+    carteira_magic["Status"] = carteira_magic["Papel"].map(lambda papel: "Mantém" if carteira_magic_anterior.isin(papel).any() else "Nova")
+    carteira_clube["Status"] = carteira_clube["Papel"].map(lambda papel: "Mantém" if carteira_clube_anterior.isin(papel).any() else "Nova")
+
+    for index, row in carteira_magic_anterior:
+        if (~carteira_magic.isin(row["Papel"]).any()):
+            if (row["Status"] != "Saindo"):
+                row["Status"] = "Saindo"
+                carteira_magic.loc[carteira_magic.shape[0]] = row
+
     acoes_em_comum = pd.merge(carteira_magic, carteira_clube, how='inner')
+
     carteira_magic.to_json(r'carteira_magic.json')
     carteira_clube.to_json(r'carteira_clube.json')
     acoes_em_comum.to_json(r'acoes_em_comum.json')
+    logger.info("Carteiras geradas.")
 except Exception as e:
     logger.exception(e)
-logger.info("Carteiras de investimentos gerada.")
 
 logger.debug("Autenticando com Google Sheets...")
 try:
