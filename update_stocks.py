@@ -5,7 +5,7 @@ from tqdm import tqdm
 import math
 from logzero import logger
 import logzero
-logzero.logfile("logfile.log", maxBytes=1e6, backupCount=3)
+logzero.logfile("logfile_updater.log", maxBytes=1e6, backupCount=3)
 
 
 url_fundamentus = "http://www.fundamentus.com.br/resultado.php"
