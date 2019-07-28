@@ -5,8 +5,8 @@
 e no método Clube do Valor de Ramiro Gomes, métodos apresentados no curso
 DMA - Descomplicando o Mercado de Ações."""
 
-__author__  = "Felipe Scrochio Custódio"
-__email__   = "felipe.crochi@gmail.com"
+__author__ = "Felipe Scrochio Custódio"
+__email__ = "felipe.crochi@gmail.com"
 
 import sys
 import pandas as pd
@@ -16,10 +16,12 @@ from timeit import default_timer as timer
 import logzero
 from logzero import logger
 logzero.logfile("logfile_stocks.log", maxBytes=1e6, backupCount=3)
+import os
+import psutil
+logger.info(psutil.Process(os.getpid()))
 
 start = timer()
 url_fundamentus = "http://www.fundamentus.com.br/resultado.php"
-url_papel = "http://www.fundamentus.com.br/detalhes.php?papel="
 filtro_setores = ["Financeiros", "Holdings Diversificadas", "Previdência e Seguros", "Serviços Financeiros Diversos"]
 
 carteira_magic_anterior = pd.read_json("carteira_magic.json")

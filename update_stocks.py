@@ -41,6 +41,7 @@ for papel in pbar:
     pbar.set_description("Processando papel %s" % papel)
     try:
         info = pd.read_html(url_papel + papel)[0]
+        print(info)
         tipos.append(info[1][1])
         empresas.append(info[1][2])
         setores.append(info[1][3])
