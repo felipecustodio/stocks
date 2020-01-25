@@ -1,5 +1,0 @@
-* Banco de dados dos papéis
-* Verificar se existe algum papel fora do banco pra ser adicionado
-* Manter histórico da carteira: quais entraram, quais saíram
-* Filtrar empresas do setor financeiro
-
