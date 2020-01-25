@@ -1,6 +1,7 @@
 from google.cloud import storage
 import re
 import pandas as pd
+import json
 from flask import escape
 
 
@@ -36,9 +37,11 @@ def update_intersection(request):
     
     print("Uploading to Storage...")
     try:
-        json_data = intersection.to_json()
-        portfolio_intersection.upload_from_string(json_data)
-        return str(json_data)
+        data = []
+        for jdict in intersection.to_dict(orient='records'):
+            data.append(jdict)
+        portfolio_intersection.upload_from_string(json.dumps(data))
+        return json.dumps(data)
     except Exception as e:
         print(e)
         return str(e)

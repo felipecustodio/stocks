@@ -1,5 +1,6 @@
 from google.cloud import storage
 import re
+import json
 import pandas as pd
 from flask import escape
 
@@ -118,9 +119,11 @@ def update_cdv(request):
 
     print("Uploading to Storage...")
     try:
-        json_data = updated_portfolio.to_json()
-        portfolio.upload_from_string(json_data)
-        return str(json_data)
+        data = []
+        for jdict in updated_portfolio.to_dict(orient='records'):
+            data.append(jdict)
+        portfolio.upload_from_string(json.dumps(data))
+        return json.dumps(data)
     except Exception as e:
         print(e)
         return str(e)
