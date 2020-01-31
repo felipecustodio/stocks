@@ -11,6 +11,7 @@ def update_fundamentus(request):
         storage_client = storage.Client()
         bucket = storage_client.get_bucket('carteiras')
         fundamentus = bucket.blob('fundamentus.json')
+        stocks_info = bucket.blob('stocks_info.json')
     except Exception as e:
         print(e)
         return str(e)
@@ -38,6 +39,14 @@ def update_fundamentus(request):
             except Exception as e:
                 print(e)
                 return str(e)
+    
+    print("Merge stocks info...")
+    try:
+        stocks_info = pd.read_json(stocks_info.download_as_string())
+        stocks = (stocks.merge(stocks_info, left_on="Papel", right_on="Papel"))
+    except Exception as e:
+        print(e)
+        return str(e)
 
     print("Uploading to Storage...")
     try:
