@@ -1,8 +1,0 @@
-Flask
-pandas
-numpy
-google-cloud-storage
-google-cloud-bigquery
-lxml
-unidecode
-pyppeteer

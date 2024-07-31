@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BR Stocks</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.1/css/bulma.min.css">
+    <style>
+        body {
+            background-image: url("bg.jpg");
+        }
+    </style>
+</head>
+
+<body>
+    <section class="section">
+        <div class="container">
+            <h1 class="title">
+                Brazil Stocks
+            </h1>
+            <p class="subtitle">
+                Sample portfolios for the <strong>Brazilian</strong> market, updated weekly.
+            </p>
+        </div>
+    </section>
+
+    <div class="container">
+        <h1 class="title">Magic Formula Table</h1>
+        <table class="table is-striped is-hoverable">
+            <thead>
+                <tr>
+                    <th>Papel</th>
+                    <th>Cotação</th>
+                    <th>Empresa</th>
+                    <th>Setor</th>
+                    <th>Magic Formula Ranking</th>
+                </tr>
+            </thead>
+            <tbody id="data-table-body">
+                <!-- Dynamic content will be injected here -->
+            </tbody>
+        </table>
+    </div>
+<script>
+    // Function to load JSON data
+    async function loadJSON() {
+        try {
+            const response = await fetch('../magicformula.json');
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            displayData(data);
+        } catch (error) {
+            console.error('Error fetching JSON:', error);
+        }
+    }
+
+    // Function to display data on the table
+    function displayData(data) {
+        const tableBody = document.getElementById('data-table-body');
+        data.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${item.Papel}</td>
+                <td>${item.Cotação}</td>
+                <td>${item.Empresa}</td>
+                <td>${item.Setor}</td>
+                <td>${item["Rank Magic Formula"]}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    // Load JSON when the page is ready
+    document.addEventListener('DOMContentLoaded', loadJSON);
+</script>
+</body>
+
+</html>
