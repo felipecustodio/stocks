@@ -70,24 +70,6 @@ instance/
 .worktrees/
 
 # Generated data
-fundamentus.json
-magicformula.json
-cdv.json
-intersection.json
-graham.json
-bazin.json
-quality.json
-piotroski.json
-multifactor.json
-acquirers.json
-deepvalue.json
-netnet.json
-garp.json
-momentum_value.json
-contrarian.json
-cashrich.json
-stocks/fundamentus.json
-frontend/data/strategies.bundle.json
 
 # Sphinx documentation
 docs/_build/

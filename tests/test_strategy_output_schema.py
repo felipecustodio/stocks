@@ -78,6 +78,7 @@ class StrategyOutputSchemaTest(unittest.TestCase):
                 payload["methodology_summary"],
                 MagicFormulaPipeline.strategy_methodology_summary,
             )
+            self.assertTrue(payload["formula_latex"])
             self.assertEqual(payload["use_cases"], MagicFormulaPipeline.strategy_use_cases)
             self.assertEqual(payload["caveats"], MagicFormulaPipeline.strategy_caveats)
             self.assertTrue(payload["generated_at"])
@@ -87,3 +88,4 @@ class StrategyOutputSchemaTest(unittest.TestCase):
             self.assertEqual(payload["stocks"][0]["Rank EV / EBIT"], 1)
             self.assertEqual(payload["stocks"][0]["Rank ROIC"], 1)
             self.assertEqual(payload["stocks"][0]["Rank Magic Formula"], 2)
+            json.dumps(payload, allow_nan=False)

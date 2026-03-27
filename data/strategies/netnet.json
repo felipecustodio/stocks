@@ -1,0 +1,100 @@
+{
+    "strategy_id": "netnet",
+    "name": "Net-Net (NCAV)",
+    "description": "Busca ações negociando abaixo do valor líquido de ativos circulantes (NCAV).",
+    "methodology_summary": "Filtra empresas com NCAV positivo e preço abaixo do NCAV por ação.",
+    "formula_latex": "NCAV=AC-(A-PL),\\ P<\\frac{NCAV}{N},\\ Rank\\downarrow\\left(-\\frac{P}{NCAV/N}\\right)",
+    "use_cases": [
+        "Explorar oportunidades extremas de desconto patrimonial.",
+        "Triagem defensiva em cenários de estresse."
+    ],
+    "caveats": [
+        "Sinal raro no mercado atual; pode gerar poucos resultados.",
+        "Liquidação teórica pode não se materializar na prática."
+    ],
+    "generated_at": "2026-03-27T20:11:03.126474+00:00",
+    "universe_size": 994,
+    "filtered_size": 1,
+    "result_size": 1,
+    "stocks": [
+        {
+            "Papel": "MTRE3",
+            "Cotação": 3.7,
+            "P/Ativo": 0.164,
+            "Liq.2meses": 2368650.0,
+            "Dív.Brut/ Patrim.": 0.67,
+            "URL": "https://www.fundamentus.com.br/detalhes.php?papel=MTRE3",
+            "Tipo": "ON NM",
+            "Data últ cot": "2026-03-26",
+            "Empresa": "MITRE REALTY ON NM",
+            "Min 52 sem": 3.0,
+            "Setor": "Construção Civil",
+            "Max 52 sem": 4.29,
+            "Subsetor": "Incorporações",
+            "Vol $ méd (2m)": 2368650.0,
+            "Valor de mercado": 391367000.0,
+            "Últ balanço processado": "2025-12-31",
+            "Valor da firma": 859290000.0,
+            "Nro. Ações": 105775000.0,
+            "Oscilações": {
+                "Dia": -0.013300000000000001,
+                "LPA": 0.51,
+                "Mês": -0.0817,
+                "VPA": 9.49,
+                "30 dias": -0.1038,
+                "Marg. Bruta": 0.258,
+                "12 meses": 0.2419,
+                "Marg. EBIT": 0.079,
+                "2026": 0.0125,
+                "Marg. Líquida": 0.07400000000000001,
+                "2025": 0.47619999999999996,
+                "EBIT / Ativo": 0.035,
+                "2024": -0.48869999999999997,
+                "ROIC": 0.039,
+                "2023": 0.9494,
+                "ROE": 0.054000000000000006,
+                "2022": -0.5354,
+                "Liquidez Corr": "          2,68",
+                "2021": -0.46299999999999997,
+                "Div Br/ Patrim": "          0,67",
+                "Cres. Rec (5a)": 0.18
+            },
+            "Indicadores fundamentalistas": {
+                "P/L": 7.28,
+                "P/VP": 0.39,
+                "P/EBIT": "          4,71",
+                "PSR": "          0,37",
+                "P/Ativos": "          0,16",
+                "P/Cap. Giro": "          0,33",
+                "P/Ativ Circ Liq": "          0,69",
+                "Div. Yield": 0.12,
+                "EV / EBITDA": "          7,61",
+                "EV / EBIT": "          10,35",
+                "Giro Ativos": "          0,44"
+            },
+            "Dados Balanço Patrimonial": {
+                "Ativo": 2384090000.0,
+                "Dív. Bruta": 674847000.0,
+                "Disponibilidades": 206924000.0,
+                "Dív. Líquida": 467923000.0,
+                "Ativo Circulante": 1895930000.0,
+                "Patrim. Líq": 1003670000.0
+            },
+            "Dados demonstrativos de resultados": {
+                "Últimos 12 meses": {
+                    "Receita Líquida": 1054920000.0,
+                    "EBIT": 83026000.0,
+                    "Lucro Líquido": 53750000.0
+                },
+                "Últimos 3 meses": {
+                    "Receita Líquida": 315540000.0,
+                    "EBIT": 25088000.0,
+                    "Lucro Líquido": 23464000.0
+                }
+            },
+            "Data": "2026-03-27",
+            "NCAV per Share": 4.87,
+            "NCAV Discount": 0.2408
+        }
+    ]
+}

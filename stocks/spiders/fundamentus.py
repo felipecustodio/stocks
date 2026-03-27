@@ -1,8 +1,37 @@
-import scrapy
-import pandas as pd
-from io import StringIO
-from collections import defaultdict
 import datetime as dt
+from collections import defaultdict
+from io import StringIO
+
+import pandas as pd
+import scrapy
+
+from stocks import pipelines as strategy_pipelines
+from stocks.pipelines import ScreeningPipeline
+
+
+def _build_item_pipelines() -> dict[str, int]:
+    item_pipelines = {
+        "stocks.pipelines.CleanValuesPipeline": 300,
+        "stocks.pipelines.NormalizeValuesPipeline": 400,
+        "stocks.pipelines.DateValuesPipeline": 500,
+        "stocks.pipelines.NanValuesPipeline": 600,
+    }
+
+    strategy_classes = []
+    for obj in vars(strategy_pipelines).values():
+        if (
+            isinstance(obj, type)
+            and issubclass(obj, ScreeningPipeline)
+            and obj is not ScreeningPipeline
+            and getattr(obj, "output_path", None)
+        ):
+            strategy_classes.append(obj)
+
+    for strategy_cls in sorted(strategy_classes, key=lambda cls: cls.__name__):
+        item_pipelines[f"{strategy_cls.__module__}.{strategy_cls.__name__}"] = 700
+
+    return item_pipelines
+
 
 class FundamentusSpider(scrapy.Spider):
     name = "fundamentus"
@@ -23,14 +52,9 @@ class FundamentusSpider(scrapy.Spider):
     }
 
     custom_settings = {
-        "ITEM_PIPELINES": {
-            "stocks.pipelines.CleanValuesPipeline": 300,
-            "stocks.pipelines.NormalizeValuesPipeline": 400,
-            "stocks.pipelines.DateValuesPipeline": 500,
-            "stocks.pipelines.NanValuesPipeline": 600,
-        },
+        "ITEM_PIPELINES": _build_item_pipelines(),
         "FEEDS": {
-            "fundamentus.json": {
+            "data/raw/fundamentus.json": {
                 "format": "json",
                 "encoding": "utf8",
                 "store_empty": True,
@@ -42,7 +66,7 @@ class FundamentusSpider(scrapy.Spider):
 
     def start_requests(self):
         if hasattr(self, "stock_url"):
-            yield scrapy.Request(self.stock_url, callback=self.parse_details)
+            yield scrapy.Request(str(self.stock_url), callback=self.parse_details)
             return
 
         yield scrapy.Request(self.start_urls[0], callback=self.parse)
@@ -83,7 +107,7 @@ class FundamentusSpider(scrapy.Spider):
                 values = row.xpath(".//td[contains(@class, 'data')]//text()").getall()
                 values = [value for value in values if value.strip() != "\n" and value.strip() != ""]
                 row_values = defaultdict(list)
-                for key, value in zip(keys, values):
+                for key, value in zip(keys, values, strict=False):
                     if key in self.table_details_mapping:
                         key = self.table_details_mapping[key]
 
@@ -113,9 +137,9 @@ class FundamentusSpider(scrapy.Spider):
                     if not row_values:
                         continue
 
-                    for index1, header1 in enumerate(table_headers):
+                    for _index1, header1 in enumerate(table_headers):
                         for index2, header2 in enumerate(table_headers_2):
-                            key = list(row_values.keys())[0]
+                            key = next(iter(row_values.keys()))
                             value = row_values[key][index2]
                             if key in stock:
                                 stock.pop(key)

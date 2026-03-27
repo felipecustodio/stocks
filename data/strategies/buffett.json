@@ -1,0 +1,20 @@
+{
+    "strategy_id": "buffett",
+    "name": "Buffett Composite",
+    "description": "Aplica critérios inspirados em Warren Buffett: ROE elevado (>15%), endividamento controlado, margens consistentes e P/L razoável.",
+    "methodology_summary": "Filtra ROE > 15%, Dív. Líq./Patrim. < 1, Marg. Líquida > 10%, P/L entre 0 e 25. Ordena por score composto de ROE e margem líquida.",
+    "formula_latex": "ROE>0.15,\\ Div/Patrim<1,\\ MargLiq>0.10,\\ 0<P/L<25",
+    "use_cases": [
+        "Buscar empresas com vantagem competitiva duradoura (economic moat).",
+        "Construir carteira de longo prazo com foco em qualidade e preço justo."
+    ],
+    "caveats": [
+        "ROE alto com alavancagem alta pode ser artificialmente inflado.",
+        "Critérios qualitativos de Buffett (gestão, marca, moat) não são capturados por dados quantitativos."
+    ],
+    "generated_at": "2026-03-27T20:11:03.372025+00:00",
+    "universe_size": 994,
+    "filtered_size": 0,
+    "result_size": 0,
+    "stocks": []
+}

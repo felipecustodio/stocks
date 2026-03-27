@@ -3,6 +3,7 @@ const REQUIRED_STRATEGY_KEYS = [
   'name',
   'description',
   'methodology_summary',
+  'formula_latex',
   'use_cases',
   'caveats',
   'generated_at',
@@ -41,10 +42,21 @@ export function validateBundle(bundle) {
   }
 }
 
-export function buildTickerSets(strategies) {
+function normalizeLimit(limit) {
+  if (limit === 'ALL') return Number.POSITIVE_INFINITY;
+  const parsed = Number(limit);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return parsed;
+}
+
+export function buildTickerSets(strategies, limit = Number.POSITIVE_INFINITY) {
+  const max = normalizeLimit(limit);
   return strategies.reduce((acc, strategy) => {
     const tickers = new Set(
       strategy.stocks
+        .slice(0, max)
         .map((stock) => stock?.Papel)
         .filter((ticker) => typeof ticker === 'string' && ticker.length > 0)
     );
@@ -54,10 +66,11 @@ export function buildTickerSets(strategies) {
   }, {});
 }
 
-export function buildStockMap(strategies) {
+export function buildStockMap(strategies, limit = Number.POSITIVE_INFINITY) {
+  const max = normalizeLimit(limit);
   const map = new Map();
   for (const strategy of strategies) {
-    for (const stock of strategy.stocks) {
+    for (const stock of strategy.stocks.slice(0, max)) {
       if (!stock || typeof stock !== 'object' || !stock.Papel) {
         continue;
       }

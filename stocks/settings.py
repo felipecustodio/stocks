@@ -38,7 +38,7 @@ def _get_handler_custom(*args, **kwargs):
     return handler
 
 
-scrapy.utils.log._get_handler = _get_handler_custom
+scrapy.utils.log._get_handler = _get_handler_custom  # ty: ignore[invalid-assignment]
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = "stocks (+http://www.yourdomain.com)"
@@ -47,7 +47,9 @@ ROBOTSTXT_OBEY = True
 
 # Override the default request headers:
 DEFAULT_REQUEST_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.140 Safari/537.36",
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.140 Safari/537.36"
+    ),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en",
 }

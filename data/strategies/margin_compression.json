@@ -1,0 +1,20 @@
+{
+    "strategy_id": "margin_compression",
+    "name": "Margin Compression Detector",
+    "description": "Detecta empresas com gap significativo entre margem bruta e margem EBIT, sugerindo potencial de recuperação de margem operacional.",
+    "methodology_summary": "Calcula o gap entre Marg. Bruta e Marg. EBIT. Empresas com gap grande têm despesas SGA/outros custos comprimindo a margem operacional, indicando potencial de melhoria caso custos sejam otimizados.",
+    "formula_latex": "Gap=Marg.Bruta-Marg.EBIT,\\ Rank\\downarrow Gap",
+    "use_cases": [
+        "Encontrar empresas com potencial de expansão de margem operacional.",
+        "Identificar candidatas a reestruturação que podem melhorar rentabilidade."
+    ],
+    "caveats": [
+        "Gap alto pode ser estrutural do setor, não necessariamente recuperável.",
+        "Requer análise qualitativa dos componentes de custo para confirmar a tese."
+    ],
+    "generated_at": "2026-03-27T20:11:03.159967+00:00",
+    "universe_size": 994,
+    "filtered_size": 0,
+    "result_size": 0,
+    "stocks": []
+}

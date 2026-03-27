@@ -3,36 +3,115 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Stocks Explorer</title>
+    <title>Atlas Quantitativo de Estratégias</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./styles.css" />
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['\\(', '\\)']],
+          displayMath: [['\\[', '\\]']],
+        },
+      };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </head>
   <body>
     <main class="page">
       <section class="hero swiss-grid-pattern">
         <p class="section-label">01. SYSTEM</p>
-        <h1>Screening Explorer</h1>
-        <p>
-          Exploração de estratégias de ações com comparação por interseção, análise de risco e contexto
-          editorial.
+        <h1>Atlas Quantitativo de Estratégias</h1>
+        <p class="hero-subtitle">
+          Explore estratégias quantitativas de ações brasileiras com convergência de picks, risco e contexto técnico.
         </p>
         <div class="hero-meta">
-          <span id="status">Inicializando...</span>
-          <span>Gerado em: <strong id="generated-at">-</strong></span>
+          <span class="meta-pill">
+            <i data-lucide="database"></i>
+            <span id="status">Inicializando...</span>
+          </span>
+          <span class="meta-pill">
+            <i data-lucide="calendar"></i>
+            Atualizado em: <strong id="generated-at">-</strong>
+          </span>
+          <span class="meta-pill">
+            <i data-lucide="chart-candlestick"></i>
+            Universo: <strong id="universe-count">-</strong> ações
+          </span>
+          <span class="meta-pill meta-control">
+            <i data-lucide="sliders-horizontal"></i>
+            <label for="display-limit">Top N exibido:</label>
+            <select id="display-limit">
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30" selected>30</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="ALL">ALL</option>
+            </select>
+          </span>
+          <span class="meta-pill meta-control">
+            <i data-lucide="building-2"></i>
+            <label for="sector-filter">Setor:</label>
+            <select id="sector-filter">
+              <option value="ALL" selected>Todos</option>
+            </select>
+          </span>
         </div>
       </section>
 
-      <section>
-        <p class="section-label">02. ESTRATÉGIAS</p>
-        <div id="strategies" class="strategy-grid"></div>
+      <section class="consensus-section swiss-grid-pattern">
+        <p class="section-label">02. TOP PICKS DE CONSENSO</p>
+        <div class="consensus-head">
+          <h2><i data-lucide="sparkles"></i> Ações Mais Recorrentes</h2>
+          <p class="muted">
+            Destaque positivo para papéis que aparecem com maior frequência entre as estratégias ativas.
+          </p>
+        </div>
+        <div id="consensus-picks" class="consensus-picks"></div>
+      </section>
+
+      <section class="strategies-section">
+        <p class="section-label">03. ESTRATÉGIAS</p>
+        <nav class="strategy-nav swiss-grid-pattern" aria-label="Navegação rápida de estratégias">
+          <p class="strategy-nav-title"><i data-lucide="list"></i> Estratégias disponíveis</p>
+          <div id="strategy-index" class="strategy-index"></div>
+        </nav>
+        <article class="usage-panel swiss-grid-pattern">
+          <h2><i data-lucide="lightbulb"></i> Como usar a Interseção</h2>
+          <p>
+            Este fluxo mostra <strong>convergência de picks</strong> entre estratégias.
+            Você seleciona estratégias e vê os ativos em comum (ou união), em vez de comparar
+            tabelas lado a lado.
+          </p>
+          <ol class="usage-steps">
+            <li>Abra <strong>Interseção</strong> em qualquer card de estratégia.</li>
+            <li>Marque as estratégias que deseja combinar.</li>
+            <li>Escolha o modo <strong>AND</strong> (comum) ou <strong>OR</strong> (ampliado).</li>
+          </ol>
+          <ul>
+            <li><strong>AND</strong>: somente ações presentes em todas as estratégias selecionadas (interseção).</li>
+            <li><strong>OR</strong>: ações presentes em pelo menos uma estratégia selecionada (união).</li>
+          </ul>
+        </article>
+        <div id="strategies" class="strategy-list"></div>
       </section>
     </main>
 
-    <aside id="compare-drawer" class="drawer" aria-label="Comparação">
+    <aside id="compare-drawer" class="drawer" aria-label="Interseção e união de estratégias">
       <header class="drawer-head">
-        <h2>Comparar estratégias</h2>
+        <h2><i data-lucide="git-merge"></i> Interseção de estratégias</h2>
         <button id="close-compare" class="btn">Fechar</button>
       </header>
       <div class="drawer-body">
+        <p class="section-label">05. RESULTADO COMBINADO</p>
+        <p id="mode-help" class="drawer-help"></p>
+        <p id="mode-badge" class="mode-badge"></p>
         <div class="control">
           <label for="mode-select">Operação:</label>
           <select id="mode-select">
@@ -40,20 +119,14 @@
             <option value="OR">OR (união)</option>
           </select>
         </div>
+        <h3 id="results-title" class="drawer-subtitle">Resultado da interseção</h3>
         <div id="compare-strategy-list"></div>
         <p id="compare-count" class="muted"></p>
         <div id="compare-results"></div>
       </div>
     </aside>
 
-    <aside id="detail-drawer" class="drawer" aria-label="Risco do ativo">
-      <header class="drawer-head">
-        <h2>Risco do ativo</h2>
-        <button id="close-detail" class="btn">Fechar</button>
-      </header>
-      <div id="detail-content" class="drawer-body"></div>
-    </aside>
-
     <script type="module" src="./main.mjs"></script>
+    <script src="https://unpkg.com/lucide@0.539.0/dist/umd/lucide.min.js"></script>
   </body>
 </html>

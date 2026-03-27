@@ -4,11 +4,15 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+from stocks import pipelines as strategy_pipelines
+from stocks.pipelines import ScreeningPipeline
+
 REQUIRED_STRATEGY_KEYS = {
     "strategy_id",
     "name",
     "description",
     "methodology_summary",
+    "formula_latex",
     "use_cases",
     "caveats",
     "generated_at",
@@ -49,10 +53,24 @@ def _build_stock_index(strategies: list[dict]) -> dict[str, list[str]]:
     return {ticker: sorted(ids) for ticker, ids in sorted(index.items())}
 
 
+def _active_strategy_ids() -> set[str]:
+    ids: set[str] = set()
+    for obj in vars(strategy_pipelines).values():
+        if (
+            isinstance(obj, type)
+            and issubclass(obj, ScreeningPipeline)
+            and obj is not ScreeningPipeline
+            and getattr(obj, "output_path", None)
+        ):
+            ids.add(obj._strategy_id())
+    return ids
+
+
 def build_bundle(input_dir: Path, output_file: Path) -> dict:
     input_dir = Path(input_dir)
     output_file = Path(output_file)
 
+    active_ids = _active_strategy_ids()
     strategies: list[dict] = []
     for file_path in sorted(input_dir.glob("*.json")):
         if file_path == output_file:
@@ -64,6 +82,8 @@ def build_bundle(input_dir: Path, output_file: Path) -> dict:
             continue
 
         if not _is_strategy_payload(data):
+            continue
+        if data.get("strategy_id") not in active_ids:
             continue
 
         strategies.append(data)
@@ -84,7 +104,11 @@ def build_bundle(input_dir: Path, output_file: Path) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build frontend strategy bundle")
-    parser.add_argument("--input", default=".", help="Directory containing strategy JSON files")
+    parser.add_argument(
+        "--input",
+        default="data/strategies",
+        help="Directory containing strategy JSON files",
+    )
     parser.add_argument(
         "--output",
         default="frontend/data/strategies.bundle.json",

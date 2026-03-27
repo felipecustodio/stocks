@@ -6,13 +6,13 @@ sync:
 lock:
     uv lock
 
-# Run the Fundamentus spider (outputs fundamentus.json, magicformula.json, cdv.json, intersection.json)
+# Run the Fundamentus spider (outputs data/raw/fundamentus.json + data/strategies/*.json)
 crawl:
     uv run scrapy crawl fundamentus
-    uv run python -m stocks.bundle --input . --output frontend/data/strategies.bundle.json
+    uv run python -m stocks.bundle --input data/strategies --output frontend/data/strategies.bundle.json
 
 bundle:
-    uv run python -m stocks.bundle --input . --output frontend/data/strategies.bundle.json
+    uv run python -m stocks.bundle --input data/strategies --output frontend/data/strategies.bundle.json
 
 # Lint with ruff
 lint:

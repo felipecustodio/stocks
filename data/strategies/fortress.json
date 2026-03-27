@@ -1,0 +1,20 @@
+{
+    "strategy_id": "fortress",
+    "name": "Fortress Balance Sheet",
+    "description": "Seleciona empresas com balanço patrimonial excepcionalmente forte: alta liquidez corrente, baixo endividamento e EBIT positivo.",
+    "methodology_summary": "Filtra Liquidez Corr > 1.5, Dív. Líq./Patrim. < 0.5, e EBIT positivo. Ordena por score composto de liquidez corrente e baixo endividamento.",
+    "formula_latex": "LiqCorr>1.5,\\ Div/Patrim<0.5,\\ Score=Rank(LiqCorr)+Rank(Div/Patrim)",
+    "use_cases": [
+        "Buscar empresas resilientes em cenários de crise ou recessão.",
+        "Construir carteira defensiva com baixo risco de solvência."
+    ],
+    "caveats": [
+        "Balanço forte não garante crescimento ou boa alocação de capital.",
+        "Excesso de caixa pode indicar falta de oportunidades de reinvestimento."
+    ],
+    "generated_at": "2026-03-27T20:11:03.198393+00:00",
+    "universe_size": 994,
+    "filtered_size": 0,
+    "result_size": 0,
+    "stocks": []
+}

@@ -1,0 +1,23 @@
+name: stocks
+
+team:
+  name: stocks
+
+rows:
+  - size: 70%
+    panes:
+      - title: Lead
+        command: claude
+        role: lead
+        focus: true
+      - title: Teammate 1
+        command: claude
+        role: teammate
+      - title: Teammate 2
+        command: claude
+        role: teammate
+
+  - panes:
+      - title: Dev Server
+        # command: bun run dev
+      - title: Shell
