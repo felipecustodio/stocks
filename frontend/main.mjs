@@ -1,4 +1,5 @@
 import { buildStockMap, buildTickerSets, loadBundle } from './js/data.mjs';
+import { formatGeneratedAt } from './js/datetime.mjs';
 import { intersectAndOr } from './js/intersections.mjs';
 import {
   renderConsensusPicks,
@@ -266,7 +267,7 @@ async function boot() {
     rebuildViewData();
     renderSectorFilterOptions();
 
-    dom.generatedAt.textContent = bundle.generated_at;
+    dom.generatedAt.textContent = formatGeneratedAt(bundle.generated_at);
     dom.universeCount.textContent = String(state.fullStockMap.size);
     dom.status.textContent = `${bundle.strategy_count ?? bundle.strategies.length} estratégias carregadas.`;
     renderPage();
