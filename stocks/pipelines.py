@@ -124,9 +124,13 @@ class ScreeningPipeline:
         if isinstance(value, (int, float)):
             return float(value)
         if isinstance(value, str):
-            cleaned = value.strip().replace(".", "").replace(",", ".")
+            cleaned = re.sub(r"[^\d,.\-]", "", value.strip())
             if not cleaned or cleaned == "-":
                 return default
+            if "," in cleaned and "." in cleaned:
+                cleaned = cleaned.replace(".", "").replace(",", ".")
+            elif "," in cleaned:
+                cleaned = cleaned.replace(",", ".")
             try:
                 return float(cleaned)
             except ValueError:
@@ -266,8 +270,14 @@ class MagicFormulaPipeline(ScreeningPipeline):
 
     def rank(self, items):
         for item in items:
-            item["_ev_ebit"] = self._get_nested(item, "Indicadores fundamentalistas", "EV / EBIT", float("inf"))
-            item["_roic"] = self._get_nested(item, "Oscilações", "ROIC", float("-inf"))
+            item["_ev_ebit"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "EV / EBIT", float("inf")),
+                float("inf"),
+            )
+            item["_roic"] = self._as_number(
+                self._get_nested(item, "Oscilações", "ROIC", float("-inf")),
+                float("-inf"),
+            )
 
         items.sort(key=lambda x: x["_ev_ebit"])
         for rank, item in enumerate(items, 1):
@@ -304,7 +314,10 @@ class CDVPipeline(ScreeningPipeline):
 
     def rank(self, items):
         for item in items:
-            item["_ev_ebit"] = self._get_nested(item, "Indicadores fundamentalistas", "EV / EBIT", float("inf"))
+            item["_ev_ebit"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "EV / EBIT", float("inf")),
+                float("inf"),
+            )
 
         items.sort(key=lambda x: x["_ev_ebit"])
         for rank, item in enumerate(items, 1):
@@ -391,16 +404,16 @@ class GrahamNumberPipeline(ScreeningPipeline):
         base = super().filter(items)
         return [
             item for item in base
-            if (self._get_nested(item, "Oscilações", "LPA", 0) or 0) > 0
-            and (self._get_nested(item, "Oscilações", "VPA", 0) or 0) > 0
+            if self._as_number(self._get_nested(item, "Oscilações", "LPA", 0), 0.0) > 0
+            and self._as_number(self._get_nested(item, "Oscilações", "VPA", 0), 0.0) > 0
         ]
 
     def rank(self, items):
         for item in items:
-            lpa = self._get_nested(item, "Oscilações", "LPA", 0)
-            vpa = self._get_nested(item, "Oscilações", "VPA", 0)
+            lpa = self._as_number(self._get_nested(item, "Oscilações", "LPA", 0), 0.0)
+            vpa = self._as_number(self._get_nested(item, "Oscilações", "VPA", 0), 0.0)
             graham_number = math.sqrt(22.5 * lpa * vpa)
-            cotacao = item.get("Cotação", float("inf"))
+            cotacao = self._as_number(item.get("Cotação", float("inf")), float("inf"))
             item["Graham Number"] = round(graham_number, 2)
             item["Margin of Safety"] = round((graham_number - cotacao) / graham_number, 4) if graham_number > 0 else 0
 
@@ -436,13 +449,21 @@ class BazinPipeline(ScreeningPipeline):
         base = super().filter(items)
         return [
             item for item in base
-            if (self._get_nested(item, "Indicadores fundamentalistas", "Div. Yield", 0) or 0) >= self.MIN_DIV_YIELD
-            and (self._get_nested(item, "Oscilações", "Div Br/ Patrim", float("inf")) or 0) <= self.MAX_DEBT_RATIO
+            if self._as_number(self._get_nested(item, "Indicadores fundamentalistas", "Div. Yield", 0), 0.0)
+            >= self.MIN_DIV_YIELD
+            and self._as_number(
+                self._get_nested(item, "Oscilações", "Div Br/ Patrim", float("inf")),
+                float("inf"),
+            )
+            <= self.MAX_DEBT_RATIO
         ]
 
     def rank(self, items):
         for item in items:
-            item["_div_yield"] = self._get_nested(item, "Indicadores fundamentalistas", "Div. Yield", 0) or 0
+            item["_div_yield"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "Div. Yield", 0),
+                0.0,
+            )
 
         items.sort(key=lambda x: x["_div_yield"], reverse=True)
         for rank, item in enumerate(items, 1):
@@ -474,8 +495,14 @@ class QualityPipeline(ScreeningPipeline):
 
     def rank(self, items):
         for item in items:
-            item["_roic"] = self._get_nested(item, "Oscilações", "ROIC", float("-inf")) or 0
-            item["_net_margin"] = self._get_nested(item, "Oscilações", "Marg. Líquida", float("-inf")) or 0
+            item["_roic"] = self._as_number(
+                self._get_nested(item, "Oscilações", "ROIC", float("-inf")),
+                float("-inf"),
+            )
+            item["_net_margin"] = self._as_number(
+                self._get_nested(item, "Oscilações", "Marg. Líquida", float("-inf")),
+                float("-inf"),
+            )
 
         items.sort(key=lambda x: x["_roic"], reverse=True)
         for rank, item in enumerate(items, 1):
@@ -522,9 +549,9 @@ class PiotroskiPipeline(ScreeningPipeline):
         score = 0
 
         # Profitability signals
-        roe = self._get_nested(item, "Oscilações", "ROE", 0) or 0
-        roic = self._get_nested(item, "Oscilações", "ROIC", 0) or 0
-        ebit_ativo = self._get_nested(item, "Oscilações", "EBIT / Ativo", 0) or 0
+        roe = self._as_number(self._get_nested(item, "Oscilações", "ROE", 0), 0.0)
+        roic = self._as_number(self._get_nested(item, "Oscilações", "ROIC", 0), 0.0)
+        ebit_ativo = self._as_number(self._get_nested(item, "Oscilações", "EBIT / Ativo", 0), 0.0)
 
         if roe > 0:
             score += 1  # Positive ROE
@@ -534,8 +561,11 @@ class PiotroskiPipeline(ScreeningPipeline):
             score += 1  # Positive return on assets
 
         # Leverage / liquidity signals
-        liq_corr = self._get_nested(item, "Oscilações", "Liquidez Corr", 0) or 0
-        div_br_patrim = self._get_nested(item, "Oscilações", "Div Br/ Patrim", float("inf")) or 0
+        liq_corr = self._as_number(self._get_nested(item, "Oscilações", "Liquidez Corr", 0), 0.0)
+        div_br_patrim = self._as_number(
+            self._get_nested(item, "Oscilações", "Div Br/ Patrim", float("inf")),
+            float("inf"),
+        )
 
         if liq_corr > 1:
             score += 1  # Current ratio > 1
@@ -543,10 +573,13 @@ class PiotroskiPipeline(ScreeningPipeline):
             score += 1  # Low debt-to-equity
 
         # Efficiency signals
-        marg_bruta = self._get_nested(item, "Oscilações", "Marg. Bruta", 0) or 0
-        marg_ebit = self._get_nested(item, "Oscilações", "Marg. EBIT", 0) or 0
-        giro_ativos = self._get_nested(item, "Indicadores fundamentalistas", "Giro Ativos", 0) or 0
-        cresc_rec = self._get_nested(item, "Oscilações", "Cres. Rec (5a)", 0) or 0
+        marg_bruta = self._as_number(self._get_nested(item, "Oscilações", "Marg. Bruta", 0), 0.0)
+        marg_ebit = self._as_number(self._get_nested(item, "Oscilações", "Marg. EBIT", 0), 0.0)
+        giro_ativos = self._as_number(
+            self._get_nested(item, "Indicadores fundamentalistas", "Giro Ativos", 0),
+            0.0,
+        )
+        cresc_rec = self._as_number(self._get_nested(item, "Oscilações", "Cres. Rec (5a)", 0), 0.0)
 
         if marg_bruta > 0.2:
             score += 1  # Healthy gross margin
@@ -599,10 +632,22 @@ class MultiFactorPipeline(ScreeningPipeline):
 
     def rank(self, items):
         for item in items:
-            item["_ev_ebit"] = self._get_nested(item, "Indicadores fundamentalistas", "EV / EBIT", float("inf"))
-            item["_roic"] = self._get_nested(item, "Oscilações", "ROIC", float("-inf")) or 0
-            item["_growth"] = self._get_nested(item, "Oscilações", "Cres. Rec (5a)", float("-inf")) or 0
-            item["_div_yield"] = self._get_nested(item, "Indicadores fundamentalistas", "Div. Yield", 0) or 0
+            item["_ev_ebit"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "EV / EBIT", float("inf")),
+                float("inf"),
+            )
+            item["_roic"] = self._as_number(
+                self._get_nested(item, "Oscilações", "ROIC", float("-inf")),
+                float("-inf"),
+            )
+            item["_growth"] = self._as_number(
+                self._get_nested(item, "Oscilações", "Cres. Rec (5a)", float("-inf")),
+                float("-inf"),
+            )
+            item["_div_yield"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "Div. Yield", 0),
+                0.0,
+            )
 
         # Rank each factor independently
         items.sort(key=lambda x: x["_ev_ebit"])
@@ -656,7 +701,10 @@ class AcquirersMultiplePipeline(ScreeningPipeline):
 
     def rank(self, items):
         for item in items:
-            item["_ev_ebitda"] = self._get_nested(item, "Indicadores fundamentalistas", "EV / EBITDA", float("inf"))
+            item["_ev_ebitda"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "EV / EBITDA", float("inf")),
+                float("inf"),
+            )
 
         items.sort(key=lambda x: x["_ev_ebitda"])
         for rank, item in enumerate(items, 1):
@@ -686,15 +734,27 @@ class DeepValuePipeline(ScreeningPipeline):
         base = super().filter(items)
         return [
             item for item in base
-            if (self._get_nested(item, "Indicadores fundamentalistas", "P/L", 0) or 0) > 0
+            if self._as_number(self._get_nested(item, "Indicadores fundamentalistas", "P/L", 0), 0.0) > 0
         ]
 
     def rank(self, items):
         for item in items:
-            item["_pl"] = self._get_nested(item, "Indicadores fundamentalistas", "P/L", float("inf"))
-            item["_pvp"] = self._get_nested(item, "Indicadores fundamentalistas", "P/VP", float("inf"))
-            item["_psr"] = self._get_nested(item, "Indicadores fundamentalistas", "PSR", float("inf"))
-            item["_ev_ebitda"] = self._get_nested(item, "Indicadores fundamentalistas", "EV / EBITDA", float("inf"))
+            item["_pl"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "P/L", float("inf")),
+                float("inf"),
+            )
+            item["_pvp"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "P/VP", float("inf")),
+                float("inf"),
+            )
+            item["_psr"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "PSR", float("inf")),
+                float("inf"),
+            )
+            item["_ev_ebitda"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "EV / EBITDA", float("inf")),
+                float("inf"),
+            )
 
         items.sort(key=lambda x: x["_pl"])
         for rank, item in enumerate(items, 1):
@@ -748,10 +808,16 @@ class NetNetPipeline(ScreeningPipeline):
         base = super().filter(items)
         result = []
         for item in base:
-            ativo_circ = self._get_nested(item, "Dados Balanço Patrimonial", "Ativo Circulante", 0) or 0
-            ativo = self._get_nested(item, "Dados Balanço Patrimonial", "Ativo", 0) or 0
-            patrim_liq = self._get_nested(item, "Dados Balanço Patrimonial", "Patrim. Líq", 0) or 0
-            nro_acoes = item.get("Nro. Ações", 0) or 0
+            ativo_circ = self._as_number(
+                self._get_nested(item, "Dados Balanço Patrimonial", "Ativo Circulante", 0),
+                0.0,
+            )
+            ativo = self._as_number(self._get_nested(item, "Dados Balanço Patrimonial", "Ativo", 0), 0.0)
+            patrim_liq = self._as_number(
+                self._get_nested(item, "Dados Balanço Patrimonial", "Patrim. Líq", 0),
+                0.0,
+            )
+            nro_acoes = self._as_number(item.get("Nro. Ações", 0), 0.0)
 
             if ativo_circ <= 0 or ativo <= 0 or patrim_liq <= 0 or nro_acoes <= 0:
                 continue
@@ -761,7 +827,7 @@ class NetNetPipeline(ScreeningPipeline):
                 continue
 
             ncav_per_share = ncav / nro_acoes
-            cotacao = item.get("Cotação", float("inf"))
+            cotacao = self._as_number(item.get("Cotação", float("inf")), float("inf"))
             if cotacao is None or cotacao >= ncav_per_share:
                 continue
 
@@ -839,13 +905,16 @@ class MomentumValuePipeline(ScreeningPipeline):
         return [
             item for item in base
             if self._get_nested(item, "Oscilações", "12 meses", None) is not None
-            and (self._get_nested(item, "Indicadores fundamentalistas", "P/VP", 0) or 0) > 0
+            and self._as_number(self._get_nested(item, "Indicadores fundamentalistas", "P/VP", 0), 0.0) > 0
         ]
 
     def rank(self, items):
         for item in items:
-            item["_momentum"] = self._get_nested(item, "Oscilações", "12 meses", 0)
-            item["_pvp"] = self._get_nested(item, "Indicadores fundamentalistas", "P/VP", float("inf"))
+            item["_momentum"] = self._as_number(self._get_nested(item, "Oscilações", "12 meses", 0), 0.0)
+            item["_pvp"] = self._as_number(
+                self._get_nested(item, "Indicadores fundamentalistas", "P/VP", float("inf")),
+                float("inf"),
+            )
 
         items.sort(key=lambda x: x["_momentum"], reverse=True)
         for rank, item in enumerate(items, 1):
@@ -889,15 +958,15 @@ class ContrarianPipeline(ScreeningPipeline):
         base = super().filter(items)
         result = []
         for item in base:
-            cotacao = item.get("Cotação", None)
-            min52 = item.get("Min 52 sem", None)
+            cotacao = self._as_number(item.get("Cotação", None), float("nan"))
+            min52 = self._as_number(item.get("Min 52 sem", None), float("nan"))
             roic = self._as_number(self._get_nested(item, "Oscilações", "ROIC", 0), 0.0)
             debt = self._as_number(
                 self._get_nested(item, "Oscilações", "Div Br/ Patrim", float("inf")),
                 float("inf"),
             )
 
-            if cotacao is None or min52 is None or min52 <= 0:
+            if math.isnan(cotacao) or math.isnan(min52) or min52 <= 0:
                 continue
 
             above_low = (cotacao - min52) / min52
@@ -940,8 +1009,11 @@ class CashRichPipeline(ScreeningPipeline):
         base = super().filter(items)
         result = []
         for item in base:
-            cash = self._get_nested(item, "Dados Balanço Patrimonial", "Disponibilidades", 0) or 0
-            market_cap = item.get("Valor de mercado", 0) or 0
+            cash = self._as_number(
+                self._get_nested(item, "Dados Balanço Patrimonial", "Disponibilidades", 0),
+                0.0,
+            )
+            market_cap = self._as_number(item.get("Valor de mercado", 0), 0.0)
 
             if cash <= 0 or market_cap <= 0:
                 continue
