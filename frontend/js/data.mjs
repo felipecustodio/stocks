@@ -89,3 +89,39 @@ export function buildStockMap(strategies, limit = Number.POSITIVE_INFINITY) {
   }
   return map;
 }
+
+export function buildTickerIndex(strategies) {
+  const index = new Map();
+  for (const strategy of strategies) {
+    for (let i = 0; i < strategy.stocks.length; i++) {
+      const stock = strategy.stocks[i];
+      if (!stock?.Papel) continue;
+      const ticker = stock.Papel;
+
+      if (!index.has(ticker)) {
+        index.set(ticker, {
+          ticker,
+          company: stock.Empresa ?? '',
+          sector: stock.Setor ?? '',
+          sample: stock,
+          fontes: { ...(stock.Fontes ?? {}) },
+          appearances: [],
+        });
+      }
+
+      const entry = index.get(ticker);
+      // Merge fontes from each appearance
+      if (stock.Fontes) {
+        Object.assign(entry.fontes, stock.Fontes);
+      }
+
+      entry.appearances.push({
+        strategy_id: strategy.strategy_id,
+        strategy_name: strategy.name,
+        rank: i + 1,
+        total: strategy.stocks.length,
+      });
+    }
+  }
+  return index;
+}
