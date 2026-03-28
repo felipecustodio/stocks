@@ -1,25 +1,29 @@
-import { buildStockMap, buildTickerSets, loadBundle } from './js/data.mjs';
+import { buildStockMap, buildTickerSets, buildTickerIndex, loadBundle } from './js/data.mjs';
+import { CATEGORIES, categoryForStrategy, categoryMetrics } from './js/categories.mjs';
 import { formatGeneratedAt } from './js/datetime.mjs';
 import { intersectAndOr } from './js/intersections.mjs';
 import {
   renderConsensusPicks,
-  renderCompareStrategyList,
-  renderIntersectionResults,
-  renderStrategyIndex,
+  renderIntelligence,
   renderStrategies,
+  renderComparison,
+  renderTickerProfile,
 } from './js/render.mjs';
 
 const state = {
   bundle: null,
   visibleStrategies: [],
-  selectedStrategies: new Set(),
-  mode: 'AND',
+  activeCategory: 'todos',
+  comparedStrategies: new Set(),
+  comparisonMode: 'AND',
   displayLimit: 30,
   sectorFilter: 'ALL',
   tickerSets: {},
   stockMap: new Map(),
   fullStockMap: new Map(),
+  tickerIndex: new Map(),
   activeStrategyId: null,
+  activeTickerProfile: null,
 };
 
 const dom = {
@@ -27,24 +31,23 @@ const dom = {
   generatedAt: document.getElementById('generated-at'),
   universeCount: document.getElementById('universe-count'),
   sectorFilter: document.getElementById('sector-filter'),
-  consensusPicks: document.getElementById('consensus-picks'),
-  strategyIndex: document.getElementById('strategy-index'),
-  strategies: document.getElementById('strategies'),
-  compareDrawer: document.getElementById('compare-drawer'),
-  compareList: document.getElementById('compare-strategy-list'),
-  compareResults: document.getElementById('compare-results'),
-  compareCount: document.getElementById('compare-count'),
-  modeHelp: document.getElementById('mode-help'),
-  modeBadge: document.getElementById('mode-badge'),
-  resultsTitle: document.getElementById('results-title'),
   displayLimit: document.getElementById('display-limit'),
-  mode: document.getElementById('mode-select'),
-  closeCompare: document.getElementById('close-compare'),
+  categoryTabs: document.getElementById('category-tabs'),
+  categoryStory: document.getElementById('category-story'),
+  tickerSearch: document.getElementById('ticker-search'),
+  searchResults: document.getElementById('search-results'),
+  tickerProfile: document.getElementById('ticker-profile'),
+  comparisonView: document.getElementById('comparison-view'),
+  consensusPicks: document.getElementById('consensus-picks'),
+  strategies: document.getElementById('strategies'),
+  intelSection: document.getElementById('intelligence-section'),
+  intelStats: document.getElementById('intel-stats'),
+  intelHighBody: document.getElementById('intel-anomalies-body'),
+  intelAllBody: document.getElementById('intel-all-body'),
+  intelToggleAll: document.getElementById('intel-toggle-all'),
+  intelAllWrap: document.getElementById('intel-all-wrap'),
+  intelAnomaliesWrap: document.getElementById('intel-anomalies-wrap'),
 };
-
-function limitLabel() {
-  return state.displayLimit === 'ALL' ? 'todos' : `top ${state.displayLimit}`;
-}
 
 function stockSector(stock) {
   const raw = stock?.Setor;
@@ -58,16 +61,18 @@ function rebuildVisibleStrategies() {
     return;
   }
 
-  state.visibleStrategies = state.bundle.strategies.map((strategy) => {
-    const scopedStocks =
-      state.sectorFilter === 'ALL'
-        ? strategy.stocks
-        : strategy.stocks.filter((stock) => stockSector(stock) === state.sectorFilter);
-    return {
-      ...strategy,
-      stocks: scopedStocks,
-    };
-  });
+  const catDef = CATEGORIES.find((c) => c.id === state.activeCategory);
+  const allowedIds = catDef && catDef.strategies.length > 0 ? new Set(catDef.strategies) : null;
+
+  state.visibleStrategies = state.bundle.strategies
+    .filter((strategy) => !allowedIds || allowedIds.has(strategy.strategy_id))
+    .map((strategy) => {
+      const scopedStocks =
+        state.sectorFilter === 'ALL'
+          ? strategy.stocks
+          : strategy.stocks.filter((stock) => stockSector(stock) === state.sectorFilter);
+      return { ...strategy, stocks: scopedStocks };
+    });
 }
 
 function rebuildDerivedData() {
@@ -78,6 +83,10 @@ function rebuildDerivedData() {
 function rebuildViewData() {
   rebuildVisibleStrategies();
   rebuildDerivedData();
+}
+
+function limitLabel() {
+  return state.displayLimit === 'ALL' ? 'todos' : `top ${state.displayLimit}`;
 }
 
 function renderSectorFilterOptions() {
@@ -100,6 +109,32 @@ function renderSectorFilterOptions() {
   }
 }
 
+function renderCategoryTabs() {
+  if (!dom.categoryTabs) return;
+  dom.categoryTabs.innerHTML = '';
+  for (const cat of CATEGORIES) {
+    const btn = document.createElement('button');
+    btn.className = `category-tab${cat.id === state.activeCategory ? ' active' : ''}`;
+    btn.dataset.categoryId = cat.id;
+    btn.innerHTML = `<i data-lucide="${cat.icon}"></i> ${cat.label}`;
+    btn.addEventListener('click', () => {
+      state.activeCategory = cat.id;
+      renderCategoryTabs();
+      rebuildViewData();
+      renderPage();
+    });
+    dom.categoryTabs.appendChild(btn);
+  }
+
+  if (dom.categoryStory) {
+    const catDef = CATEGORIES.find((c) => c.id === state.activeCategory);
+    dom.categoryStory.textContent = catDef?.story || '';
+    dom.categoryStory.style.display = catDef?.story ? '' : 'none';
+  }
+
+  if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
 async function copyText(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -117,66 +152,110 @@ async function copyText(text) {
   document.body.removeChild(temp);
 }
 
-function updateModeGuidance() {
-  if (state.mode === 'AND') {
-    dom.resultsTitle.textContent = 'Resultado da interseção';
-    dom.modeHelp.innerHTML =
-      '<strong>AND:</strong> retorna apenas ações presentes em <em>todas</em> as estratégias selecionadas.';
-    dom.modeBadge.textContent = 'Modo atual: AND (somente ativos em comum)';
-  } else {
-    dom.resultsTitle.textContent = 'Resultado da união';
-    dom.modeHelp.innerHTML =
-      '<strong>OR:</strong> retorna ações presentes em <em>pelo menos uma</em> estratégia selecionada.';
-    dom.modeBadge.textContent = 'Modo atual: OR (lista ampliada por união)';
-  }
-}
-
-function refreshComparisonResults() {
-  const ids = [...state.selectedStrategies];
-  const sets = ids.map((id) => state.tickerSets[id]).filter(Boolean);
-  const resultSet = intersectAndOr(state.mode, sets);
-  const tickers = [...resultSet];
-
-  renderIntersectionResults(dom.compareResults, tickers, state.stockMap, state.mode, ids.length);
-
-  const total = state.stockMap.size || 1;
-  const universeTotal = state.fullStockMap.size || total;
-  const pct = ((tickers.length / universeTotal) * 100).toFixed(1);
-  if (ids.length === 0) {
-    dom.compareCount.textContent = 'Seleção vazia.';
-  } else if (state.mode === 'AND') {
-    dom.compareCount.textContent = `Interseção (${limitLabel()}): ${tickers.length} ativos (${pct}% do universo no bundle).`;
-  } else {
-    dom.compareCount.textContent = `União (${limitLabel()}): ${tickers.length} ativos (${pct}% do universo no bundle).`;
-  }
-}
-
-function openCompareDrawer(defaultStrategyId = null) {
-  if (defaultStrategyId) {
-    state.selectedStrategies.add(defaultStrategyId);
-  }
-
-  dom.compareDrawer.classList.add('open');
-  updateModeGuidance();
-  renderCompareStrategyList(
-    dom.compareList,
-    state.bundle.strategies,
-    state.selectedStrategies,
-    (strategyId, checked) => {
-      if (checked) {
-        state.selectedStrategies.add(strategyId);
-      } else {
-        state.selectedStrategies.delete(strategyId);
-      }
-      refreshComparisonResults();
-    }
+function openTickerProfile(ticker) {
+  if (!dom.tickerProfile || !state.tickerIndex.has(ticker)) return;
+  state.activeTickerProfile = ticker;
+  dom.tickerProfile.style.display = '';
+  renderTickerProfile(
+    dom.tickerProfile,
+    state.tickerIndex.get(ticker),
+    state.bundle?.intelligence,
+    () => closeTickerProfile(),
+    (t) => openTickerProfile(t)
   );
-
-  refreshComparisonResults();
 }
 
-function closeCompareDrawer() {
-  dom.compareDrawer.classList.remove('open');
+function closeTickerProfile() {
+  state.activeTickerProfile = null;
+  if (dom.tickerProfile) {
+    dom.tickerProfile.style.display = 'none';
+    dom.tickerProfile.innerHTML = '';
+  }
+}
+
+function handleSearch() {
+  const query = dom.tickerSearch.value.trim().toUpperCase();
+  if (query.length < 1) {
+    dom.searchResults.classList.remove('open');
+    return;
+  }
+
+  const matches = [];
+  for (const [ticker, entry] of state.tickerIndex) {
+    if (matches.length >= 12) break;
+    if (ticker.includes(query) || entry.company.toUpperCase().includes(query)) {
+      matches.push(entry);
+    }
+  }
+
+  if (matches.length === 0) {
+    dom.searchResults.classList.remove('open');
+    return;
+  }
+
+  dom.searchResults.innerHTML = matches
+    .map(
+      (entry) => `
+      <div class="search-item" data-ticker="${entry.ticker}">
+        <span>${entry.ticker}</span>
+        <span class="search-company">${entry.company}</span>
+        <span class="search-count">${entry.appearances.length} estratégias</span>
+      </div>
+    `
+    )
+    .join('');
+  dom.searchResults.classList.add('open');
+
+  dom.searchResults.querySelectorAll('.search-item').forEach((el) => {
+    el.addEventListener('click', () => {
+      openTickerProfile(el.dataset.ticker);
+      dom.searchResults.classList.remove('open');
+      dom.tickerSearch.value = '';
+    });
+  });
+}
+
+function openComparison() {
+  if (!dom.comparisonView) return;
+  dom.comparisonView.style.display = '';
+  refreshComparison();
+}
+
+function closeComparison() {
+  state.comparedStrategies.clear();
+  if (dom.comparisonView) {
+    dom.comparisonView.style.display = 'none';
+    dom.comparisonView.innerHTML = '';
+  }
+}
+
+function refreshComparison() {
+  if (!dom.comparisonView || state.comparedStrategies.size === 0) return;
+
+  const ids = [...state.comparedStrategies];
+  const strategies = ids
+    .map((id) => state.visibleStrategies.find((s) => s.strategy_id === id))
+    .filter(Boolean);
+
+  const sets = ids.map((id) => state.tickerSets[id]).filter(Boolean);
+  const resultSet = intersectAndOr(state.comparisonMode, sets);
+  const resultTickers = [...resultSet];
+
+  renderComparison(
+    dom.comparisonView,
+    strategies,
+    state.comparisonMode,
+    resultTickers,
+    state.stockMap,
+    state.fullStockMap,
+    state.displayLimit,
+    (newMode) => {
+      state.comparisonMode = newMode;
+      refreshComparison();
+    },
+    () => closeComparison(),
+    (ticker) => openTickerProfile(ticker)
+  );
 }
 
 function renderPage() {
@@ -191,14 +270,17 @@ function renderPage() {
     }))
     .sort((a, b) => b.count - a.count || a.ticker.localeCompare(b.ticker))
     .slice(0, 12);
-  renderConsensusPicks(dom.consensusPicks, consensus, state.bundle.strategies.length);
+  renderConsensusPicks(
+    dom.consensusPicks,
+    consensus,
+    state.bundle.strategies.length,
+    state.bundle?.intelligence,
+    (ticker) => openTickerProfile(ticker)
+  );
 
-  renderStrategyIndex(dom.strategyIndex, state.bundle.strategies, state.activeStrategyId, (strategyId) => {
-    const card = document.getElementById(`strategy-card-${strategyId}`);
-    if (card) {
-      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
+  if (dom.intelSection && state.bundle?.intelligence) {
+    renderIntelligence(dom.intelSection, dom.intelStats, dom.intelHighBody, dom.intelAllBody, state.bundle.intelligence);
+  }
 
   renderStrategies(
     dom.strategies,
@@ -214,23 +296,17 @@ function renderPage() {
       renderPage();
     },
     (strategyId) => {
-      if (!dom.compareDrawer.classList.contains('open')) {
-        openCompareDrawer(strategyId);
-        return;
+      if (state.comparedStrategies.has(strategyId)) {
+        state.comparedStrategies.delete(strategyId);
+      } else if (state.comparedStrategies.size < 4) {
+        state.comparedStrategies.add(strategyId);
       }
-
-      if (state.selectedStrategies.has(strategyId)) {
-        state.selectedStrategies.delete(strategyId);
+      if (state.comparedStrategies.size === 0) {
+        closeComparison();
       } else {
-        state.selectedStrategies.add(strategyId);
+        openComparison();
       }
-
-      if (state.selectedStrategies.size === 0) {
-        closeCompareDrawer();
-        return;
-      }
-
-      openCompareDrawer();
+      renderPage();
     },
     async (strategyId) => {
       const strategy = state.visibleStrategies.find((item) => item.strategy_id === strategyId);
@@ -254,18 +330,23 @@ function renderPage() {
         dom.status.textContent = `Falha ao copiar Top N de ${strategy.name}.`;
         return false;
       }
-    }
+    },
+    state.bundle?.intelligence,
+    state.comparedStrategies,
+    (ticker) => openTickerProfile(ticker)
   );
 }
 
 async function boot() {
   try {
-    dom.status.textContent = 'Carregando bundle de estratégias...';
+    dom.status.textContent = 'Carregando...';
     const bundle = await loadBundle('./data/strategies.bundle.json');
     state.bundle = bundle;
     state.fullStockMap = buildStockMap(bundle.strategies, 'ALL');
+    state.tickerIndex = buildTickerIndex(bundle.strategies);
     rebuildViewData();
     renderSectorFilterOptions();
+    renderCategoryTabs();
 
     dom.generatedAt.textContent = formatGeneratedAt(bundle.generated_at);
     dom.universeCount.textContent = String(state.fullStockMap.size);
@@ -276,14 +357,6 @@ async function boot() {
   }
 }
 
-if (dom.mode) {
-  dom.mode.addEventListener('change', (event) => {
-    state.mode = event.target.value;
-    updateModeGuidance();
-    refreshComparisonResults();
-  });
-}
-
 if (dom.displayLimit) {
   dom.displayLimit.value = String(state.displayLimit);
   dom.displayLimit.addEventListener('change', (event) => {
@@ -292,7 +365,7 @@ if (dom.displayLimit) {
     rebuildDerivedData();
     dom.universeCount.textContent = String(state.fullStockMap.size);
     renderPage();
-    refreshComparisonResults();
+    if (state.comparedStrategies.size > 0) refreshComparison();
   });
 }
 
@@ -301,10 +374,29 @@ if (dom.sectorFilter) {
     state.sectorFilter = event.target.value;
     rebuildViewData();
     renderPage();
-    refreshComparisonResults();
+    if (state.comparedStrategies.size > 0) refreshComparison();
   });
 }
 
-dom.closeCompare?.addEventListener('click', closeCompareDrawer);
+if (dom.tickerSearch) {
+  dom.tickerSearch.addEventListener('input', handleSearch);
+  dom.tickerSearch.addEventListener('focus', handleSearch);
+  document.addEventListener('click', (event) => {
+    if (!dom.tickerSearch.contains(event.target) && !dom.searchResults.contains(event.target)) {
+      dom.searchResults.classList.remove('open');
+    }
+  });
+}
+
+if (dom.intelToggleAll) {
+  dom.intelToggleAll.addEventListener('click', () => {
+    const wrap = dom.intelAllWrap;
+    if (!wrap) return;
+    const isHidden = wrap.style.display === 'none';
+    wrap.style.display = isHidden ? '' : 'none';
+    const label = dom.intelToggleAll.querySelector('span');
+    if (label) label.textContent = isHidden ? 'Ocultar médias e baixas' : 'Mostrar médias e baixas';
+  });
+}
 
 boot();
