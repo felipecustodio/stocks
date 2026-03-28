@@ -12,8 +12,14 @@ Brazilian stock market analysis system that scrapes fundamental data from Fundam
 # Install dependencies
 just sync
 
-# Run the Fundamentus spider (outputs fundamentus.json, magicformula.json, cdv.json, intersection.json)
+# Run the Fundamentus spider (outputs fundamentus.json + all strategy JSONs)
 just crawl
+
+# Cross-validate Fundamentus data against StatusInvest (all tickers, slow)
+just crossval
+
+# Cross-validate specific tickers only
+just crossval-tickers VULC3,WEGE3,PETR4
 
 # Lint and type check
 just check
@@ -34,6 +40,7 @@ just fmt
 **Data pipeline flow (all triggered by `just crawl`):**
 1. **Spider** (`stocks/spiders/fundamentus.py`) scrapes Fundamentus stock listings and detail pages
 2. **Transform pipelines** (`stocks/pipelines.py`): Clean → Normalize (Brazilian number formats) → DateValues → NaN handling
+3. **Enrichment pipelines**: DataSources (adds URLs to Fundamentus/StatusInvest/Investidor10/Yahoo/Google/TradingView) → AnomalyDetection (flags outliers, inconsistencies, suspicious values → `data/intelligence/anomalies.json`)
 3. **Screening pipelines** (`stocks/pipelines.py`), all sharing base filtering (liquidity ≥ 150k, EBIT margin > 0, excluded financial sectors):
    - `MagicFormulaPipeline`: EV/EBIT + ROIC combined rank → `magicformula.json`
    - `CDVPipeline`: EV/EBIT only (Clube do Valor) → `cdv.json`
@@ -73,6 +80,8 @@ just fmt
 - Brazilian number format `1.234,56` → float `1234.56`
 - Percentage strings `15,5%` → decimal `0.155`
 - Dates `01/01/2024` → ISO `2024-01-01`
+
+**Cross-validation spider** (`stocks/spiders/statusinvest.py`): Scrapes StatusInvest for the same tickers and compares 10 key metrics (P/L, P/VP, ROE, margins, etc.) with 15% tolerance. Outputs discrepancy report to `data/intelligence/cross_validation.json`. Run via `just crossval` or `just crossval-tickers TICKER1,TICKER2`.
 
 **WIP:** `stocks/spiders/b3.py` — B3 FII spider, incomplete. The B3 page loads data via JavaScript/iframe and needs dynamic content handling.
 

@@ -70,6 +70,10 @@ instance/
 .worktrees/
 
 # Generated data
+data/raw/*.json
+data/strategies/*.json
+data/intelligence/*.json
+frontend/data/strategies.bundle.json
 
 # Sphinx documentation
 docs/_build/

@@ -93,9 +93,258 @@ class DateValuesPipeline:
         return item
 
 
+DATA_SOURCES = {
+    "Fundamentus": "https://www.fundamentus.com.br/detalhes.php?papel={ticker}",
+    "StatusInvest": "https://statusinvest.com.br/acoes/{ticker_lower}",
+    "Investidor10": "https://investidor10.com.br/acoes/{ticker_lower}/",
+    "Yahoo Finance": "https://finance.yahoo.com/quote/{ticker}.SA/",
+    "Google Finance": "https://www.google.com/finance/quote/{ticker}:BVMF",
+    "TradingView": "https://www.tradingview.com/symbols/BMFBOVESPA-{ticker}/",
+}
+
+
+class DataSourcesPipeline:
+    """Enriches each stock item with reference URLs to major financial data sources."""
+
+    def process_item(self, item, spider):
+        ticker = item.get("Papel", "")
+        if ticker:
+            item["Fontes"] = {
+                name: url.format(ticker=ticker, ticker_lower=ticker.lower())
+                for name, url in DATA_SOURCES.items()
+            }
+        return item
+
+
+class AnomalyDetectionPipeline:
+    """Detects data quality anomalies and flags suspicious metrics per ticker.
+
+    Runs statistical outlier detection on key financial metrics,
+    consistency checks between related fields, and impossible-value detection.
+    Outputs a data quality report to data/intelligence/anomalies.json.
+    """
+
+    output_path = "data/intelligence/anomalies.json"
+
+    # Metric definitions: (section, key, min_sane, max_sane, description)
+    METRIC_BOUNDS = [
+        ("Oscilações", "ROE", -1.0, 1.5, "ROE fora da faixa -100% a 150%"),
+        ("Oscilações", "ROIC", -1.0, 1.0, "ROIC fora da faixa -100% a 100%"),
+        ("Oscilações", "Marg. Líquida", -2.0, 1.0, "Margem Líquida fora da faixa -200% a 100%"),
+        ("Oscilações", "Marg. Bruta", -0.5, 1.0, "Margem Bruta fora da faixa -50% a 100%"),
+        ("Oscilações", "Marg. EBIT", -2.0, 1.0, "Margem EBIT fora da faixa -200% a 100%"),
+        ("Indicadores fundamentalistas", "P/L", -500, 500, "P/L extremo"),
+        ("Indicadores fundamentalistas", "EV / EBIT", -100, 200, "EV/EBIT extremo"),
+    ]
+
+    def __init__(self):
+        self.items = []
+
+    @staticmethod
+    def _as_number(value, default=0.0):
+        return ScreeningPipeline._as_number(value, default)
+
+    @staticmethod
+    def _get_nested(item, section, key, default=None):
+        return ScreeningPipeline._get_nested(item, section, key, default)
+
+    def process_item(self, item, spider):
+        self.items.append(dict(item))
+        return item
+
+    def _check_bounds(self, item):
+        """Check if metrics fall within sane bounds."""
+        flags = []
+        for section, key, min_val, max_val, desc in self.METRIC_BOUNDS:
+            value = self._as_number(self._get_nested(item, section, key, None), None)
+            if value is None:
+                continue
+            if value < min_val or value > max_val:
+                flags.append({
+                    "type": "out_of_bounds",
+                    "metric": key,
+                    "value": value,
+                    "bounds": [min_val, max_val],
+                    "description": desc,
+                })
+        return flags
+
+    def _check_consistency(self, item):
+        """Check for inconsistencies between related metrics."""
+        flags = []
+
+        # Net margin should not exceed gross margin
+        gross = self._as_number(self._get_nested(item, "Oscilações", "Marg. Bruta", None), None)
+        net = self._as_number(self._get_nested(item, "Oscilações", "Marg. Líquida", None), None)
+        if gross is not None and net is not None and net > gross > 0:
+            flags.append({
+                "type": "inconsistency",
+                "metric": "Marg. Líquida > Marg. Bruta",
+                "values": {"Marg. Bruta": gross, "Marg. Líquida": net},
+                "description": "Margem líquida maior que margem bruta sugere receita financeira inflando lucro",
+            })
+
+        # EV/EBIT < 1 is highly suspicious for non-financial companies
+        ev_ebit = self._as_number(
+            self._get_nested(item, "Indicadores fundamentalistas", "EV / EBIT", None), None
+        )
+        if ev_ebit is not None and 0 < ev_ebit < 1:
+            flags.append({
+                "type": "suspicious_value",
+                "metric": "EV / EBIT",
+                "value": ev_ebit,
+                "description": (
+                    "EV/EBIT < 1 geralmente indica EV distorcido "
+                    "(ex: empresa financeira ou caixa excessivo)"
+                ),
+            })
+
+        # Lucro Líquido TTM should be roughly consistent with LPA * Nro. Ações
+        demos = item.get("Dados demonstrativos de resultados", {})
+        if isinstance(demos, dict):
+            ttm = demos.get("Últimos 12 meses", {})
+            if isinstance(ttm, dict):
+                lucro_ttm = self._as_number(ttm.get("Lucro Líquido", None), None)
+                nro_acoes = self._as_number(item.get("Nro. Ações", None), None)
+                lpa = self._as_number(self._get_nested(item, "Oscilações", "LPA", None), None)
+                if lucro_ttm is not None and nro_acoes and nro_acoes > 0 and lpa is not None:
+                    implied_lucro = lpa * nro_acoes
+                    if implied_lucro != 0:
+                        ratio = lucro_ttm / implied_lucro
+                        if ratio > 1.5 or ratio < 0.5:
+                            flags.append({
+                                "type": "inconsistency",
+                                "metric": "Lucro TTM vs LPA * Nro. Ações",
+                                "values": {
+                                    "Lucro TTM": lucro_ttm,
+                                    "LPA * Nro. Ações": round(implied_lucro, 2),
+                                    "ratio": round(ratio, 2),
+                                },
+                                "description": (
+                                    "Lucro TTM diverge significativamente do implícito por LPA, "
+                                    "possível item não recorrente ou erro de dados"
+                                ),
+                            })
+
+        return flags
+
+    def _compute_zscore_flags(self, items):
+        """Flag metrics that are statistical outliers (|z-score| > 3)."""
+        metrics_to_check = [
+            ("Oscilações", "ROE"),
+            ("Oscilações", "ROIC"),
+            ("Oscilações", "Marg. Líquida"),
+            ("Indicadores fundamentalistas", "EV / EBIT"),
+        ]
+
+        ticker_flags: dict[str, list] = {}
+
+        for section, key in metrics_to_check:
+            values = []
+            for item in items:
+                val = self._as_number(self._get_nested(item, section, key, None), None)
+                if val is not None:
+                    values.append((item.get("Papel", ""), val))
+
+            if len(values) < 10:
+                continue
+
+            nums = [v for _, v in values]
+            mean = sum(nums) / len(nums)
+            variance = sum((x - mean) ** 2 for x in nums) / len(nums)
+            std = variance**0.5
+
+            if std == 0:
+                continue
+
+            for ticker, val in values:
+                zscore = (val - mean) / std
+                if abs(zscore) > 3:
+                    flag = {
+                        "type": "statistical_outlier",
+                        "metric": key,
+                        "value": val,
+                        "z_score": round(zscore, 2),
+                        "population_mean": round(mean, 4),
+                        "population_std": round(std, 4),
+                        "description": f"{key} com z-score de {zscore:.1f} (> 3 desvios da média)",
+                    }
+                    ticker_flags.setdefault(ticker, []).append(flag)
+
+        return ticker_flags
+
+    def close_spider(self, spider):
+        if not self.items:
+            return
+
+        anomalies = {}
+
+        # Per-item checks
+        for item in self.items:
+            ticker = item.get("Papel", "")
+            if not ticker:
+                continue
+
+            flags = self._check_bounds(item) + self._check_consistency(item)
+            if flags:
+                anomalies[ticker] = {
+                    "ticker": ticker,
+                    "sector": item.get("Setor"),
+                    "flags": flags,
+                    "fontes": item.get("Fontes", {}),
+                }
+
+        # Z-score outlier detection
+        zscore_flags = self._compute_zscore_flags(self.items)
+        for ticker, flags in zscore_flags.items():
+            if ticker in anomalies:
+                anomalies[ticker]["flags"].extend(flags)
+            else:
+                item = next((i for i in self.items if i.get("Papel") == ticker), {})
+                anomalies[ticker] = {
+                    "ticker": ticker,
+                    "sector": item.get("Setor"),
+                    "flags": flags,
+                    "fontes": item.get("Fontes", {}),
+                }
+
+        # Sort by number of flags (most problematic first)
+        sorted_anomalies = sorted(anomalies.values(), key=lambda x: len(x["flags"]), reverse=True)
+
+        # Severity classification
+        for entry in sorted_anomalies:
+            n = len(entry["flags"])
+            entry["severity"] = "high" if n >= 3 else "medium" if n >= 2 else "low"
+
+        payload = {
+            "generated_at": dt.datetime.now(dt.UTC).isoformat(),
+            "universe_size": len(self.items),
+            "anomalies_detected": len(sorted_anomalies),
+            "severity_counts": {
+                "high": sum(1 for a in sorted_anomalies if a["severity"] == "high"),
+                "medium": sum(1 for a in sorted_anomalies if a["severity"] == "medium"),
+                "low": sum(1 for a in sorted_anomalies if a["severity"] == "low"),
+            },
+            "stocks": sorted_anomalies,
+        }
+
+        output_path = Path(self.output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=4)
+
+        logger.info(
+            "AnomalyDetectionPipeline: %d anomalies detected (%d high, %d medium, %d low)",
+            len(sorted_anomalies),
+            payload["severity_counts"]["high"],
+            payload["severity_counts"]["medium"],
+            payload["severity_counts"]["low"],
+        )
+
+
 EXCLUDED_SECTORS = [
-    "Financeiros",
     "Holdings Diversificadas",
+    "Intermediários Financeiros",
     "Previdência e Seguros",
     "Serviços Financeiros Diversos",
 ]
@@ -151,7 +400,7 @@ class ScreeningPipeline:
         return ScreeningPipeline._as_number(value, 0.0)
 
     def _get_sector(self, item):
-        return self._get_nested(item, "Dados gerais", "Setor", None)
+        return item.get("Setor")
 
     def filter(self, items):
         return [
@@ -1545,22 +1794,16 @@ class MarginCompressionPipeline(ScreeningPipeline):
         base = super().filter(items)
         result = []
         for item in base:
-            indicators = item.get("Indicadores fundamentalistas", {})
-            if not isinstance(indicators, dict):
-                continue
-            gross = self._as_number(indicators.get("Marg. Bruta", 0), 0)
-            ebit = self._as_number(indicators.get("Marg. EBIT", 0), 0)
+            gross = self._as_number(self._get_nested(item, "Oscilações", "Marg. Bruta", 0), 0)
+            ebit = self._as_number(self._get_nested(item, "Oscilações", "Marg. EBIT", 0), 0)
             if gross > 0 and ebit > 0 and gross > ebit:
                 result.append(item)
         return result
 
     def rank(self, items):
         for item in items:
-            indicators = item.get("Indicadores fundamentalistas", {})
-            if not isinstance(indicators, dict):
-                indicators = {}
-            gross = self._as_number(indicators.get("Marg. Bruta", 0), 0)
-            ebit = self._as_number(indicators.get("Marg. EBIT", 0), 0)
+            gross = self._as_number(self._get_nested(item, "Oscilações", "Marg. Bruta", 0), 0)
+            ebit = self._as_number(self._get_nested(item, "Oscilações", "Marg. EBIT", 0), 0)
             item["Marg. Bruta"] = gross
             item["Marg. EBIT"] = ebit
             item["Margin Gap"] = round(gross - ebit, 4) if gross > 0 else 0
@@ -1598,30 +1841,28 @@ class FortressBalanceSheetPipeline(ScreeningPipeline):
         base = super().filter(items)
         result = []
         for item in base:
-            indicators = item.get("Indicadores fundamentalistas", {})
-            if not isinstance(indicators, dict):
-                continue
-            liq_corr = self._as_number(indicators.get("Liquidez Corr", 0), 0)
-            div_patrim = self._as_number(indicators.get("Dív. Líq./Patrim.", float("inf")), float("inf"))
+            liq_corr = self._as_number(self._get_nested(item, "Oscilações", "Liquidez Corr", 0), 0)
+            div_patrim = self._as_number(
+                self._get_nested(item, "Oscilações", "Div Br/ Patrim", float("inf")), float("inf")
+            )
             if liq_corr > 1.5 and div_patrim < 0.5:
                 result.append(item)
         return result
 
     def rank(self, items):
         for item in items:
-            indicators = item.get("Indicadores fundamentalistas", {})
-            if not isinstance(indicators, dict):
-                indicators = {}
-            liq_corr = self._as_number(indicators.get("Liquidez Corr", 0), 0)
-            div_patrim = self._as_number(indicators.get("Dív. Líq./Patrim.", float("inf")), float("inf"))
+            liq_corr = self._as_number(self._get_nested(item, "Oscilações", "Liquidez Corr", 0), 0)
+            div_patrim = self._as_number(
+                self._get_nested(item, "Oscilações", "Div Br/ Patrim", float("inf")), float("inf")
+            )
             item["Liquidez Corr"] = liq_corr
-            item["Dív. Líq./Patrim."] = div_patrim
+            item["Div Br/ Patrim"] = div_patrim
 
         items.sort(key=lambda x: x["Liquidez Corr"], reverse=True)
         for rank, item in enumerate(items, 1):
             item["Rank Liquidez"] = rank
 
-        items.sort(key=lambda x: x["Dív. Líq./Patrim."])
+        items.sort(key=lambda x: x["Div Br/ Patrim"])
         for rank, item in enumerate(items, 1):
             item["Rank Endividamento"] = rank
 
@@ -1671,39 +1912,38 @@ class RedFlagPipeline(ScreeningPipeline):
             indicators = item.get("Indicadores fundamentalistas", {})
             if not isinstance(indicators, dict):
                 indicators = {}
-            oscilacoes = item.get("Oscilações", {})
-            if not isinstance(oscilacoes, dict):
-                oscilacoes = {}
 
             flags = 0
             reasons = []
 
-            ebit_margin = self._as_number(oscilacoes.get("Marg. EBIT", 0), 0)
+            ebit_margin = self._as_number(self._get_nested(item, "Oscilações", "Marg. EBIT", 0), 0)
             if ebit_margin < 0:
                 flags += 1
                 reasons.append("Marg. EBIT negativa")
 
-            net_margin = self._as_number(indicators.get("Marg. Líquida", 0), 0)
+            net_margin = self._as_number(self._get_nested(item, "Oscilações", "Marg. Líquida", 0), 0)
             if net_margin < 0:
                 flags += 1
                 reasons.append("Marg. Líquida negativa")
 
-            div_patrim = self._as_number(indicators.get("Dív. Líq./Patrim.", 0), 0)
+            div_patrim = self._as_number(self._get_nested(item, "Oscilações", "Div Br/ Patrim", 0), 0)
             if div_patrim > 2:
                 flags += 1
-                reasons.append("Dív. Líq./Patrim. > 2")
+                reasons.append("Div Br/ Patrim > 2")
 
             pvp = self._as_number(indicators.get("P/VP", 0), 0)
             if pvp < 0:
                 flags += 1
                 reasons.append("P/VP negativo")
 
-            liq_corr = self._as_number(indicators.get("Liquidez Corr", float("inf")), float("inf"))
+            liq_corr = self._as_number(
+                self._get_nested(item, "Oscilações", "Liquidez Corr", float("inf")), float("inf")
+            )
             if liq_corr < 0.5:
                 flags += 1
                 reasons.append("Liquidez Corr < 0.5")
 
-            change_12m = self._as_number(oscilacoes.get("12 meses", 0), 0)
+            change_12m = self._as_number(self._get_nested(item, "Oscilações", "12 meses", 0), 0)
             if change_12m < -0.30:
                 flags += 1
                 reasons.append("Queda > 30% em 12 meses")
@@ -1803,9 +2043,11 @@ class BuffettCompositePipeline(ScreeningPipeline):
             indicators = item.get("Indicadores fundamentalistas", {})
             if not isinstance(indicators, dict):
                 continue
-            roe = self._as_number(indicators.get("ROE", 0), 0)
-            div_patrim = self._as_number(indicators.get("Dív. Líq./Patrim.", float("inf")), float("inf"))
-            marg_liq = self._as_number(indicators.get("Marg. Líquida", 0), 0)
+            roe = self._as_number(self._get_nested(item, "Oscilações", "ROE", 0), 0)
+            div_patrim = self._as_number(
+                self._get_nested(item, "Oscilações", "Div Br/ Patrim", float("inf")), float("inf")
+            )
+            marg_liq = self._as_number(self._get_nested(item, "Oscilações", "Marg. Líquida", 0), 0)
             pl = self._as_number(indicators.get("P/L", 0), 0)
 
             if roe > 0.15 and div_patrim < 1 and marg_liq > 0.10 and 0 < pl < 25:
@@ -1814,11 +2056,8 @@ class BuffettCompositePipeline(ScreeningPipeline):
 
     def rank(self, items):
         for item in items:
-            indicators = item.get("Indicadores fundamentalistas", {})
-            if not isinstance(indicators, dict):
-                indicators = {}
-            roe = self._as_number(indicators.get("ROE", 0), 0)
-            marg_liq = self._as_number(indicators.get("Marg. Líquida", 0), 0)
+            roe = self._as_number(self._get_nested(item, "Oscilações", "ROE", 0), 0)
+            marg_liq = self._as_number(self._get_nested(item, "Oscilações", "Marg. Líquida", 0), 0)
             item["ROE"] = roe
             item["Marg. Líquida"] = marg_liq
 

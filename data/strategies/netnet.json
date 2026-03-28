@@ -12,40 +12,40 @@
         "Sinal raro no mercado atual; pode gerar poucos resultados.",
         "Liquidação teórica pode não se materializar na prática."
     ],
-    "generated_at": "2026-03-27T20:11:03.126474+00:00",
+    "generated_at": "2026-03-28T00:38:52.711178+00:00",
     "universe_size": 994,
     "filtered_size": 1,
     "result_size": 1,
     "stocks": [
         {
             "Papel": "MTRE3",
-            "Cotação": 3.7,
-            "P/Ativo": 0.164,
-            "Liq.2meses": 2368650.0,
+            "Cotação": 3.67,
+            "P/Ativo": 0.163,
+            "Liq.2meses": 2338120.0,
             "Dív.Brut/ Patrim.": 0.67,
             "URL": "https://www.fundamentus.com.br/detalhes.php?papel=MTRE3",
             "Tipo": "ON NM",
-            "Data últ cot": "2026-03-26",
+            "Data últ cot": "2026-03-27",
             "Empresa": "MITRE REALTY ON NM",
             "Min 52 sem": 3.0,
             "Setor": "Construção Civil",
             "Max 52 sem": 4.29,
             "Subsetor": "Incorporações",
-            "Vol $ méd (2m)": 2368650.0,
-            "Valor de mercado": 391367000.0,
+            "Vol $ méd (2m)": 2338120.0,
+            "Valor de mercado": 388194000.0,
             "Últ balanço processado": "2025-12-31",
-            "Valor da firma": 859290000.0,
+            "Valor da firma": 856117000.0,
             "Nro. Ações": 105775000.0,
             "Oscilações": {
-                "Dia": -0.013300000000000001,
+                "Dia": -0.008100000000000001,
                 "LPA": 0.51,
-                "Mês": -0.0817,
+                "Mês": -0.0891,
                 "VPA": 9.49,
-                "30 dias": -0.1038,
+                "30 dias": -0.1024,
                 "Marg. Bruta": 0.258,
-                "12 meses": 0.2419,
+                "12 meses": 0.23550000000000001,
                 "Marg. EBIT": 0.079,
-                "2026": 0.0125,
+                "2026": 0.0043,
                 "Marg. Líquida": 0.07400000000000001,
                 "2025": 0.47619999999999996,
                 "EBIT / Ativo": 0.035,
@@ -60,16 +60,16 @@
                 "Cres. Rec (5a)": 0.18
             },
             "Indicadores fundamentalistas": {
-                "P/L": 7.28,
+                "P/L": 7.22,
                 "P/VP": 0.39,
-                "P/EBIT": "          4,71",
+                "P/EBIT": "          4,68",
                 "PSR": "          0,37",
                 "P/Ativos": "          0,16",
                 "P/Cap. Giro": "          0,33",
-                "P/Ativ Circ Liq": "          0,69",
-                "Div. Yield": 0.12,
-                "EV / EBITDA": "          7,61",
-                "EV / EBIT": "          10,35",
+                "P/Ativ Circ Liq": "          0,68",
+                "Div. Yield": 0.121,
+                "EV / EBITDA": "          7,58",
+                "EV / EBIT": "          10,31",
                 "Giro Ativos": "          0,44"
             },
             "Dados Balanço Patrimonial": {
@@ -93,8 +93,16 @@
                 }
             },
             "Data": "2026-03-27",
+            "Fontes": {
+                "Fundamentus": "https://www.fundamentus.com.br/detalhes.php?papel=MTRE3",
+                "StatusInvest": "https://statusinvest.com.br/acoes/mtre3",
+                "Investidor10": "https://investidor10.com.br/acoes/mtre3/",
+                "Yahoo Finance": "https://finance.yahoo.com/quote/MTRE3.SA/",
+                "Google Finance": "https://www.google.com/finance/quote/MTRE3:BVMF",
+                "TradingView": "https://www.tradingview.com/symbols/BMFBOVESPA-MTRE3/"
+            },
             "NCAV per Share": 4.87,
-            "NCAV Discount": 0.2408
+            "NCAV Discount": 0.247
         }
     ]
 }

@@ -15,6 +15,8 @@ def _build_item_pipelines() -> dict[str, int]:
         "stocks.pipelines.NormalizeValuesPipeline": 400,
         "stocks.pipelines.DateValuesPipeline": 500,
         "stocks.pipelines.NanValuesPipeline": 600,
+        "stocks.pipelines.DataSourcesPipeline": 650,
+        "stocks.pipelines.AnomalyDetectionPipeline": 660,
     }
 
     strategy_classes = []

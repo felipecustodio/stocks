@@ -197,6 +197,14 @@ function handleSearch() {
     .map(
       (entry) => `
       <div class="search-item" data-ticker="${entry.ticker}">
+        <img
+          class="search-item-logo"
+          src="https://raw.githubusercontent.com/thefintz/icones-b3/main/icones/${entry.ticker}.png"
+          alt=""
+          loading="lazy"
+          onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+        />
+        <span class="search-item-fallback" style="display:none;">${entry.ticker.slice(0, 1)}</span>
         <span>${entry.ticker}</span>
         <span class="search-company">${entry.company}</span>
         <span class="search-count">${entry.appearances.length} estratégias</span>

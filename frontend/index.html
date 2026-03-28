@@ -72,19 +72,100 @@
       <!-- Ticker profile (hidden by default) -->
       <section id="ticker-profile" class="ticker-profile" style="display:none"></section>
 
+      <!-- How to use guide -->
+      <section class="nav-guide">
+        <details class="nav-guide-details" open>
+          <summary class="nav-guide-title"><i data-lucide="compass"></i> Como usar o Atlas</summary>
+          <div class="nav-guide-body">
+            <div class="nav-guide-grid">
+              <div class="nav-guide-step">
+                <span class="nav-guide-step-num">1</span>
+                <div>
+                  <strong><i data-lucide="lightbulb"></i> O que são estratégias?</strong>
+                  <p>
+                    Cada estratégia é uma <strong>fórmula quantitativa</strong> que filtra e rankeia
+                    todas as ações da bolsa brasileira com base em critérios financeiros —
+                    <span class="guide-category">valuation, rentabilidade, dividendos, risco</span> e mais.
+                    São calculadas automaticamente a partir dos dados do
+                    <span class="guide-highlight">Fundamentus</span>.
+                  </p>
+                </div>
+              </div>
+              <div class="nav-guide-step">
+                <span class="nav-guide-step-num">2</span>
+                <div>
+                  <strong><i data-lucide="layout-grid"></i> Escolha um perfil</strong>
+                  <p>
+                    Use as <strong>abas abaixo</strong> para filtrar por objetivo:
+                    <span class="guide-category">Valor</span> (ações baratas),
+                    <span class="guide-category">Qualidade</span> (empresas sólidas),
+                    <span class="guide-category">Renda</span> (dividendos),
+                    <span class="guide-category">Crescimento</span>,
+                    <span class="guide-category">Risco</span> ou
+                    <span class="guide-category">Compostas</span> (múltiplos fatores combinados).
+                  </p>
+                </div>
+              </div>
+              <div class="nav-guide-step">
+                <span class="nav-guide-step-num">3</span>
+                <div>
+                  <strong><i data-lucide="table-properties"></i> Leia os cards</strong>
+                  <p>
+                    Cada card mostra o resumo da estratégia: quantas ações passaram no filtro,
+                    <strong>métricas médias</strong> do grupo (P/L, DY, ROIC...) e a
+                    <strong>barra de risco</strong>. Clique em
+                    <span class="guide-action"><i data-lucide="table-properties"></i> Ver detalhes</span>
+                    para ver a tabela completa com ranking, fórmula e gráficos.
+                  </p>
+                </div>
+              </div>
+              <div class="nav-guide-step">
+                <span class="nav-guide-step-num">4</span>
+                <div>
+                  <strong><i data-lucide="git-compare-arrows"></i> Compare e pesquise</strong>
+                  <p>
+                    Clique em <span class="guide-action"><i data-lucide="git-compare-arrows"></i> Comparar</span>
+                    em até 4 estratégias para ver <strong>lado a lado</strong>.
+                    Use a <span class="guide-action"><i data-lucide="search"></i> barra de busca</span>
+                    acima para pesquisar qualquer ação e ver em quais estratégias ela aparece,
+                    com que ranking e métricas.
+                  </p>
+                </div>
+              </div>
+              <div class="nav-guide-step">
+                <span class="nav-guide-step-num">5</span>
+                <div>
+                  <strong><i data-lucide="sparkles"></i> Consenso = convergência</strong>
+                  <p>
+                    O <span class="guide-highlight">Top Picks de Consenso</span> mostra as ações que
+                    aparecem no <strong>maior número de estratégias</strong>. Quanto mais estratégias
+                    diferentes concordam sobre uma ação, mais forte é o sinal —
+                    <em>mas sempre verifique os dados</em>.
+                  </p>
+                </div>
+              </div>
+              <div class="nav-guide-step">
+                <span class="nav-guide-step-num">6</span>
+                <div>
+                  <strong><i data-lucide="shield-alert"></i> Verifique a qualidade</strong>
+                  <p>
+                    A seção <span class="guide-highlight">Inteligência de Dados</span> no final sinaliza
+                    ações com dados suspeitos. Se uma ação tem anomalia de
+                    <span class="guide-highlight">alta severidade</span>, confirme os números em outra
+                    fonte (links disponíveis em cada ação) antes de confiar no ranking.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </section>
+
       <!-- Category tabs -->
       <section class="categories-section">
         <nav id="category-tabs" class="category-tabs" aria-label="Categorias de estratégia"></nav>
         <p id="category-story" class="category-story"></p>
       </section>
-
-      <!-- Strategy cards -->
-      <section class="strategies-section">
-        <div id="strategies" class="strategy-list"></div>
-      </section>
-
-      <!-- Comparison view (hidden by default, full-width inline) -->
-      <section id="comparison-view" class="comparison-view" style="display:none"></section>
 
       <!-- Consensus picks -->
       <section class="consensus-section">
@@ -98,14 +179,59 @@
         <div id="consensus-picks" class="consensus-picks"></div>
       </section>
 
+      <!-- Strategy cards -->
+      <section class="strategies-section">
+        <div id="strategies" class="strategy-list"></div>
+      </section>
+
+      <!-- Comparison view (hidden by default, full-width inline) -->
+      <section id="comparison-view" class="comparison-view" style="display:none"></section>
+
       <!-- Intelligence -->
       <section id="intelligence-section" class="intelligence-section swiss-grid-pattern" style="display:none">
         <p class="section-label">INTELIGÊNCIA DE DADOS</p>
         <div class="intelligence-head">
           <h2><i data-lucide="scan-search"></i> Qualidade dos Dados</h2>
           <p class="muted">
-            Anomalias detectadas automaticamente: métricas fora da faixa, inconsistências entre campos e outliers estatísticos.
+            Anomalias detectadas automaticamente nos dados do Fundamentus. Use esta seção para avaliar a
+            confiabilidade dos dados antes de tomar decisões.
           </p>
+        </div>
+        <div class="intel-explainer">
+          <details class="intel-how-to-read">
+            <summary><i data-lucide="help-circle"></i> Como interpretar esta seção</summary>
+            <div class="intel-explainer-body">
+              <p>
+                Nosso sistema analisa todas as ações do universo e sinaliza dados que parecem incorretos ou
+                inconsistentes. <strong>Anomalia não significa que a ação é ruim</strong> — significa que os dados
+                precisam de verificação manual antes de confiar nos números.
+              </p>
+              <h4>Tipos de anomalia</h4>
+              <dl class="intel-flag-types">
+                <dt><span class="intel-flag-label">Fora da faixa</span></dt>
+                <dd>Métrica com valor fora dos limites esperados (ex: ROE acima de 150% ou negativo abaixo de -100%). Pode indicar dado incorreto na fonte ou situação financeira excepcional.</dd>
+                <dt><span class="intel-flag-label">Inconsistência</span></dt>
+                <dd>Dois campos que deveriam ser compatíveis divergem (ex: Lucro TTM vs LPA multiplicado pelo número de ações). Sugere dado desatualizado ou item não recorrente.</dd>
+                <dt><span class="intel-flag-label">Outlier estatístico</span></dt>
+                <dd>Valor muito distante da média do universo (z-score > 3). A ação pode ser excepcional de verdade ou o dado pode estar errado.</dd>
+                <dt><span class="intel-flag-label">Valor suspeito</span></dt>
+                <dd>Combinação de indicadores que raramente faz sentido (ex: P/L negativo com lucro positivo). Merece atenção.</dd>
+              </dl>
+              <h4>Severidade</h4>
+              <ul>
+                <li><strong class="intel-sev-high">Alta</strong> — 4+ flags ou flags graves. Dados provavelmente incorretos. Verifique em outra fonte antes de usar.</li>
+                <li><strong class="intel-sev-medium">Média</strong> — 2-3 flags. Dados podem estar certos mas merecem checagem.</li>
+                <li><strong class="intel-sev-low">Baixa</strong> — 1 flag. Provavelmente ok, mas vale uma olhada rápida.</li>
+              </ul>
+              <h4>Como usar na prática</h4>
+              <p>
+                Se uma ação aparece no Top Picks ou em várias estratégias <em>e</em> tem anomalia de alta severidade,
+                abra os links nas <strong>Fontes</strong> (Fundamentus, StatusInvest, Yahoo) e compare os números
+                manualmente. Se os valores confirmam, pode seguir com a análise. Se divergem, desconsidere os
+                resultados dessa ação nas estratégias.
+              </p>
+            </div>
+          </details>
         </div>
         <div class="intelligence-summary">
           <div class="intel-stat-grid" id="intel-stats"></div>
