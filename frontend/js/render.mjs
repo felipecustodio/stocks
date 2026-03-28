@@ -1,4 +1,5 @@
 import { evaluateRisk } from './risk.mjs';
+import { categoryForStrategy, categoryMetrics } from './categories.mjs';
 
 function riskClass(level) {
   if (level === 'ALTO') return 'risk-high';
@@ -466,12 +467,198 @@ function metricConfigFor(strategyId) {
       { label: 'Marg. líq rank', path: ['Rank Marg. Líquida'] },
       { label: 'Score', path: ['Rank Quality'] },
     ],
+    buffett: [
+      { label: 'ROE', path: ['ROE'] },
+      { label: 'Marg. Líquida', path: ['Marg. Líquida'] },
+      { label: 'Rank', path: ['Rank Buffett'] },
+    ],
+    consensus: [
+      { label: 'Aparições', path: ['Appearances'] },
+      { label: 'Total estratégias', path: ['Strategy Count'] },
+      { label: 'Rank', path: ['Rank Consensus'] },
+    ],
+    earnings_yield_spread: [
+      { label: 'EY', path: ['Earnings Yield'] },
+      { label: 'Spread', path: ['EY Spread'] },
+      { label: 'Rank', path: ['Rank EY Spread'] },
+    ],
+    fortress: [
+      { label: 'Liq. Corrente', path: ['Liquidez Corr'] },
+      { label: 'Dív/PL', path: ['Div Br/ Patrim'] },
+      { label: 'Rank', path: ['Rank Fortress'] },
+    ],
+    margin_compression: [
+      { label: 'Marg. Bruta', path: ['Marg. Bruta'] },
+      { label: 'Marg. EBIT', path: ['Marg. EBIT'] },
+      { label: 'Gap', path: ['Margin Gap'] },
+    ],
+    redflags: [
+      { label: 'Red Flags', path: ['Red Flags'] },
+      { label: 'Rank', path: ['Rank Red Flags'] },
+      { label: 'DY', path: ['Indicadores fundamentalistas', 'Div. Yield'] },
+    ],
+    volatility_adjusted: [
+      { label: 'EV/EBIT', path: ['EV/EBIT'] },
+      { label: 'Volatilidade 52w', path: ['52w Volatility'] },
+      { label: 'VA Score', path: ['VA Score'] },
+    ],
+    working_capital: [
+      { label: 'P/Cap. Giro', path: ['P/Cap. Giro'] },
+      { label: 'P/Ativ Circ Liq', path: ['P/Ativ Circ Liq'] },
+      { label: 'Rank', path: ['Rank Working Capital'] },
+    ],
+    altman: [
+      { label: 'Z-Score', path: ['Z-Score'] },
+      { label: 'Rank', path: ['Rank Altman Z'] },
+      { label: 'EV/EBIT', path: ['Indicadores fundamentalistas', 'EV / EBIT'] },
+    ],
+    assetlight: [
+      { label: 'ROIC', path: ['Oscilações', 'ROIC'] },
+      { label: 'Giro Ativos', path: ['Oscilações', 'Giro Ativos'] },
+      { label: 'Rank', path: ['Rank Asset-Light'] },
+    ],
+    bookvalue: [
+      { label: 'P/VP', path: ['P/VP'] },
+      { label: 'Desconto', path: ['Book Value Discount'] },
+      { label: 'Rank', path: ['Rank Book Value'] },
+    ],
+    dupont: [
+      { label: 'Marg. Líquida', path: ['Marg. Líquida'] },
+      { label: 'Giro Ativos', path: ['Giro Ativos'] },
+      { label: 'Rank', path: ['Rank DuPont'] },
+    ],
+    earnings_accel: [
+      { label: 'EA Ratio', path: ['EA Ratio'] },
+      { label: 'Rank', path: ['Rank EA'] },
+      { label: 'ROIC', path: ['Oscilações', 'ROIC'] },
+    ],
+    largecap_dividend: [
+      { label: 'DY', path: ['Indicadores fundamentalistas', 'Div. Yield'] },
+      { label: 'Valor de mercado', path: ['Valor de mercado'] },
+      { label: 'Rank', path: ['Rank Large-Cap DY'] },
+    ],
+    sector_relative: [
+      { label: 'EV/EBIT', path: ['Indicadores fundamentalistas', 'EV / EBIT'] },
+      { label: 'Setor', path: ['Setor'] },
+      { label: 'Rank setor', path: ['Rank Sector Relative'] },
+    ],
+    smallcap_value: [
+      { label: 'EV/EBIT', path: ['Indicadores fundamentalistas', 'EV / EBIT'] },
+      { label: 'Valor de mercado', path: ['Valor de mercado'] },
+      { label: 'Rank', path: ['Rank Small-Cap Value'] },
+    ],
   };
 
   return byStrategy[strategyId] ?? defaults;
 }
 
-function createDetailPanel(strategy, displayLimit) {
+export function renderIntelligence(section, statsEl, highBody, allBody, intelligence) {
+  if (!intelligence?.anomalies) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  const a = intelligence.anomalies;
+
+  statsEl.innerHTML = `
+    <div class="intel-stat">
+      <span class="intel-stat-num">${a.total}</span>
+      <span class="intel-stat-label">Anomalias detectadas</span>
+    </div>
+    <div class="intel-stat intel-stat-high">
+      <span class="intel-stat-num">${a.severity_counts?.high ?? 0}</span>
+      <span class="intel-stat-label">Alta severidade</span>
+    </div>
+    <div class="intel-stat intel-stat-medium">
+      <span class="intel-stat-num">${a.severity_counts?.medium ?? 0}</span>
+      <span class="intel-stat-label">Média severidade</span>
+    </div>
+    <div class="intel-stat intel-stat-low">
+      <span class="intel-stat-num">${a.severity_counts?.low ?? 0}</span>
+      <span class="intel-stat-label">Baixa severidade</span>
+    </div>
+  `;
+
+  const renderAnomalyRow = (ticker, entry) => {
+    const sev = entry.severity;
+    const sevClass = sev === 'high' ? 'anomaly-high' : sev === 'medium' ? 'anomaly-medium' : 'anomaly-low';
+    const details = entry.flags
+      .slice(0, 4)
+      .map((f) => {
+        const value = f.value !== undefined ? ` (${typeof f.value === 'number' ? f.value.toFixed(4) : f.value})` : '';
+        return `${f.description || f.metric}${value}`;
+      })
+      .join('; ');
+    const extra = entry.flags.length > 4 ? ` +${entry.flags.length - 4} mais` : '';
+    const fontes = entry.fontes || {};
+    return `
+      <tr>
+        <td>
+          <div class="ticker-cell">
+            ${logoMarkup(ticker)}
+            <span>${ticker}</span>
+          </div>
+        </td>
+        <td>${entry.sector ?? '-'}</td>
+        <td><span class="anomaly-badge ${sevClass}">${sev.toUpperCase()}</span></td>
+        <td>${entry.flag_count}</td>
+        <td class="anomaly-details">${details}${extra}</td>
+        <td class="source-links-cell">${sourceLinksMarkup(fontes)}</td>
+      </tr>
+    `;
+  };
+
+  const entries = Object.entries(a.by_ticker);
+
+  const highEntries = entries.filter(([, e]) => e.severity === 'high');
+  highBody.innerHTML = highEntries.map(([ticker, e]) => renderAnomalyRow(ticker, e)).join('');
+
+  const restEntries = entries.filter(([, e]) => e.severity !== 'high');
+  allBody.innerHTML = restEntries.map(([ticker, e]) => renderAnomalyRow(ticker, e)).join('');
+
+  const wrapEl = highBody.closest('.intel-table-wrap');
+  if (wrapEl) wrapEl.style.display = '';
+
+  ensureUiEnhancements(section);
+}
+
+function sourceLinksMarkup(fontes) {
+  if (!fontes || typeof fontes !== 'object') return '';
+  const icons = {
+    Fundamentus: 'F',
+    StatusInvest: 'SI',
+    Investidor10: 'I10',
+    'Yahoo Finance': 'Y',
+    'Google Finance': 'G',
+    TradingView: 'TV',
+  };
+  return Object.entries(fontes)
+    .map(([name, url]) => {
+      const short = icons[name] ?? name.slice(0, 2);
+      return `<a href="${url}" target="_blank" rel="noopener" class="source-link" title="${name}">${short}</a>`;
+    })
+    .join(' ');
+}
+
+function anomalyBadge(ticker, intelligence) {
+  if (!intelligence?.anomalies?.by_ticker) return '';
+  const entry = intelligence.anomalies.by_ticker[ticker];
+  if (!entry) return '';
+  const cls =
+    entry.severity === 'high'
+      ? 'anomaly-high'
+      : entry.severity === 'medium'
+        ? 'anomaly-medium'
+        : 'anomaly-low';
+  const title = entry.flags
+    .slice(0, 3)
+    .map((f) => f.description || f.metric)
+    .join('; ');
+  return `<span class="anomaly-badge ${cls}" title="${title}">${entry.flag_count}<i data-lucide="alert-triangle"></i></span>`;
+}
+
+function createDetailPanel(strategy, displayLimit, intelligence) {
   const panel = document.createElement('section');
   panel.className = 'strategy-detail-panel';
   const metricSet = metricConfigFor(strategy.strategy_id);
@@ -485,20 +672,23 @@ function createDetailPanel(strategy, displayLimit) {
       const company = stock.Empresa ?? '-';
       const sector = stock.Setor ?? '-';
       const metricText = metricSet.map((metric) => readMetric(stock, metric)).join(' | ');
+      const ticker = stock.Papel ?? '-';
 
       return `
         <tr>
           <td>${index + 1}/${strategy.result_size}</td>
           <td>
             <div class="ticker-cell">
-              ${logoMarkup(stock.Papel ?? '-')}
-              <span>${stock.Papel ?? '-'}</span>
+              ${logoMarkup(ticker)}
+              <span>${ticker}</span>
+              ${anomalyBadge(ticker, intelligence)}
             </div>
           </td>
           <td>${company}</td>
           <td>${sector}</td>
           <td>${metricText}</td>
           <td><span class="risk-badge ${riskClass(risk.risk_level)}">${risk.risk_level}</span></td>
+          <td class="source-links-cell">${sourceLinksMarkup(stock.Fontes)}</td>
         </tr>
       `;
     })
@@ -535,6 +725,7 @@ function createDetailPanel(strategy, displayLimit) {
                 <th>Setor</th>
                 <th>Métricas-chave</th>
                 <th>Risco</th>
+                <th>Fontes</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -611,7 +802,10 @@ export function renderStrategies(
   onOpenDetail,
   onCloseDetail,
   onCompare,
-  onCopyTopN
+  onCopyTopN,
+  intelligence,
+  comparedStrategies,
+  onTickerClick
 ) {
   container.innerHTML = '';
 
@@ -623,26 +817,84 @@ export function renderStrategies(
 
     const picks = topPicks(strategy.stocks, 5);
 
+    // Compute card stats
+    const catId = categoryForStrategy(strategy.strategy_id);
+    const metrics = catId ? categoryMetrics(catId) : categoryMetrics('compostas');
+    const visibleCount = displayLimit === 'ALL' ? strategy.stocks.length : Math.min(strategy.stocks.length, Number(displayLimit));
+    const visibleStocks = strategy.stocks.slice(0, visibleCount);
+
+    const avgMetrics = metrics.map((metric) => {
+      const values = visibleStocks
+        .map((stock) => {
+          const raw = getPathValue(stock, metric.path);
+          return asNumber(raw, null);
+        })
+        .filter((v) => v !== null && Number.isFinite(v));
+      const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+      return { label: metric.label, avg };
+    });
+
+    const riskProfile = computeRiskProfile(visibleStocks);
+    const total = visibleStocks.length || 1;
+    const lowPct = ((riskProfile.counts.BAIXO / total) * 100).toFixed(0);
+    const medPct = ((riskProfile.counts['MÉDIO'] / total) * 100).toFixed(0);
+    const highPct = ((riskProfile.counts.ALTO / total) * 100).toFixed(0);
+
+    const avgMetricsHtml = avgMetrics
+      .map((m) => {
+        const val = m.avg !== null ? m.avg.toFixed(2) : 'N/D';
+        return `<span class="card-stat"><span class="card-stat-value">${val}</span> <span class="card-stat-label">${m.label}</span></span>`;
+      })
+      .join('');
+
+    const isCompared = comparedStrategies?.has(strategy.strategy_id);
+    const compareBtnClass = isCompared ? 'btn active' : 'btn';
+
+    const topPicksHtml = onTickerClick
+      ? picks
+          .map(
+            (ticker) => `
+            <span class="top-pick-pill ticker-link" data-ticker="${ticker}">
+              ${logoMarkup(ticker, 'top-pick-logo', 'top-pick-fallback')}
+              <span>${ticker}</span>
+            </span>
+          `
+          )
+          .join('')
+      : topPickPillsMarkup(picks);
+
     card.innerHTML = `
       <header class="card-head">
         <p class="section-label">ESTRATÉGIA</p>
         <h2>${strategy.name}</h2>
         <p class="card-desc">${strategy.description}</p>
       </header>
+      <div class="card-stats">
+        <span class="card-stat"><span class="card-stat-value">${visibleCount}</span> <span class="card-stat-label">ações</span></span>
+        ${avgMetricsHtml}
+        <span class="card-stat">
+          <div class="card-risk-bar">
+            <div class="bar-low" style="flex:${lowPct}"></div>
+            <div class="bar-med" style="flex:${medPct}"></div>
+            <div class="bar-high" style="flex:${highPct}"></div>
+          </div>
+          <span class="card-stat-label">${riskProfile.profile}</span>
+        </span>
+      </div>
       <div class="card-meta">
         <p><strong>Filtradas:</strong> ${strategy.filtered_size} | <strong>Rankeadas:</strong> ${strategy.result_size}</p>
         <p><strong>Exibindo:</strong> ${displayLimit === 'ALL' ? strategy.result_size : Math.min(strategy.result_size, displayLimit)} de ${strategy.result_size}</p>
         <p class="top-picks-line">
           <strong>Top 5:</strong>
-          <span class="top-picks-list">${topPickPillsMarkup(picks)}</span>
+          <span class="top-picks-list">${topPicksHtml}</span>
         </p>
       </div>
       <footer class="card-actions">
         <button class="btn btn-accent" data-action="detail" data-id="${strategy.strategy_id}">
           <i data-lucide="table-properties"></i> Ver detalhes
         </button>
-        <button class="btn" data-action="compare" data-id="${strategy.strategy_id}">
-          <i data-lucide="git-merge"></i> Interseção
+        <button class="${compareBtnClass}" data-action="compare" data-id="${strategy.strategy_id}">
+          <i data-lucide="git-merge"></i> Comparar
         </button>
         <button class="btn" data-action="copy-topn" data-id="${strategy.strategy_id}">
           <i class="copy-icon copy-icon-default" data-lucide="copy"></i>
@@ -656,6 +908,16 @@ export function renderStrategies(
     card.addEventListener('click', () => {
       onOpenDetail(strategy.strategy_id);
     });
+
+    // Make top pick pills clickable
+    if (onTickerClick) {
+      card.querySelectorAll('.top-pick-pill.ticker-link').forEach((el) => {
+        el.addEventListener('click', (event) => {
+          event.stopPropagation();
+          onTickerClick(el.dataset.ticker);
+        });
+      });
+    }
 
     card.querySelector('[data-action="detail"]')?.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -681,7 +943,7 @@ export function renderStrategies(
     container.appendChild(card);
 
     if (activeStrategyId === strategy.strategy_id) {
-      const panel = createDetailPanel(strategy, displayLimit);
+      const panel = createDetailPanel(strategy, displayLimit, intelligence);
       panel.querySelector('[data-action="close-detail"]')?.addEventListener('click', () => {
         onCloseDetail();
       });
@@ -726,48 +988,8 @@ export function renderStrategies(
   ensureUiEnhancements(container);
 }
 
-export function renderStrategyIndex(container, strategies, activeStrategyId, onNavigate) {
-  container.innerHTML = '';
 
-  for (const strategy of strategies) {
-    const button = document.createElement('button');
-    const isActive = strategy.strategy_id === activeStrategyId;
-    button.className = `strategy-index-item${isActive ? ' active' : ''}`;
-    button.type = 'button';
-    button.innerHTML = `
-      <i data-lucide="navigation"></i>
-      <span>${strategy.name}</span>
-    `;
-    button.addEventListener('click', () => {
-      onNavigate(strategy.strategy_id);
-    });
-    container.appendChild(button);
-  }
-
-  ensureUiEnhancements(container);
-}
-
-export function renderCompareStrategyList(container, strategies, selected, onToggle) {
-  container.innerHTML = '';
-
-  for (const strategy of strategies) {
-    const id = `strategy-${strategy.strategy_id}`;
-    const row = document.createElement('label');
-    row.className = 'check-row';
-    row.innerHTML = `
-      <input type="checkbox" id="${id}" ${selected.has(strategy.strategy_id) ? 'checked' : ''}>
-      <span>${strategy.name}</span>
-    `;
-
-    row.querySelector('input')?.addEventListener('change', (event) => {
-      onToggle(strategy.strategy_id, event.target.checked);
-    });
-
-    container.appendChild(row);
-  }
-}
-
-export function renderConsensusPicks(container, picks, strategyCount) {
+export function renderConsensusPicks(container, picks, strategyCount, intelligence, onTickerClick) {
   container.innerHTML = '';
 
   if (!picks.length) {
@@ -782,15 +1004,30 @@ export function renderConsensusPicks(container, picks, strategyCount) {
     const topStrategies = pick.strategies.slice(0, 4).join(', ');
     const sector = pick.sample?.Setor ?? 'Setor não informado';
 
+    const fontes = pick.sample?.Fontes;
+
+    const tickerHtml = onTickerClick
+      ? `<span class="ticker-link" data-ticker="${pick.ticker}">${pick.ticker}</span>`
+      : `<span>${pick.ticker}</span>`;
+
     card.innerHTML = `
       <h3 class="ticker-title">
         ${logoMarkup(pick.ticker)}
-        <span>${pick.ticker}</span>
+        ${tickerHtml}
+        ${anomalyBadge(pick.ticker, intelligence)}
       </h3>
       <p class="muted">${sector}</p>
       <p><strong>${pick.count}</strong> estratégias (${coverage}% do total)</p>
       <p class="muted">Presente em: ${topStrategies}${pick.strategies.length > 4 ? '…' : ''}</p>
+      <div class="consensus-sources">${sourceLinksMarkup(fontes)}</div>
     `;
+
+    if (onTickerClick) {
+      card.querySelector('.ticker-link')?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        onTickerClick(pick.ticker);
+      });
+    }
 
     container.appendChild(card);
   }
@@ -798,50 +1035,219 @@ export function renderConsensusPicks(container, picks, strategyCount) {
   ensureUiEnhancements(container);
 }
 
-export function renderIntersectionResults(container, tickers, stockMap, mode, selectedCount) {
+export function renderComparison(
+  container,
+  strategies,
+  mode,
+  resultTickers,
+  stockMap,
+  fullStockMap,
+  displayLimit,
+  onModeChange,
+  onClose,
+  onTickerClick
+) {
   container.innerHTML = '';
-  const modeLabel = mode === 'AND' ? 'interseção (AND)' : 'união (OR)';
 
-  if (selectedCount === 0) {
-    container.innerHTML =
-      '<p class="muted">Selecione pelo menos uma estratégia para calcular a interseção/união.</p>';
-    return;
-  }
+  // Collect all ticker sets for overlap detection
+  const allTickerSets = strategies.map((s) => {
+    const max = displayLimit === 'ALL' ? s.stocks.length : Number(displayLimit);
+    return new Set(s.stocks.slice(0, max).map((st) => st.Papel).filter(Boolean));
+  });
 
-  if (mode === 'AND' && selectedCount < 2) {
-    container.innerHTML =
-      '<p class="muted">No modo AND, selecione 2+ estratégias para ver a interseção real.</p>';
-    return;
-  }
+  // Header
+  const header = document.createElement('div');
+  header.className = 'comparison-header';
+  header.innerHTML = `
+    <h2><i data-lucide="git-merge"></i> Comparação de Estratégias</h2>
+    <button class="btn" data-action="close-comparison"><i data-lucide="x"></i> Fechar</button>
+  `;
+  header.querySelector('[data-action="close-comparison"]')?.addEventListener('click', onClose);
+  container.appendChild(header);
 
-  if (tickers.length === 0) {
-    container.innerHTML = `<p class="muted">Nenhum ativo encontrado para ${modeLabel} com a seleção atual.</p>`;
-    return;
-  }
+  // Strategy columns
+  const columns = document.createElement('div');
+  columns.className = 'comparison-columns';
 
-  for (const ticker of tickers) {
-    const stockEntry = stockMap.get(ticker);
-    if (!stockEntry) continue;
+  for (const strategy of strategies) {
+    const col = document.createElement('div');
+    col.className = 'comparison-col';
+    const catId = categoryForStrategy(strategy.strategy_id);
+    const catLabel = catId ?? 'outro';
 
-    const risk = evaluateRisk(stockEntry.sample);
-    const card = document.createElement('article');
-    card.className = 'stock-row';
+    const max = displayLimit === 'ALL' ? strategy.stocks.length : Number(displayLimit);
+    const visible = strategy.stocks.slice(0, max);
 
-    card.innerHTML = `
-      <div>
-        <h3 class="ticker-title">
-          ${logoMarkup(ticker)}
-          <span>${ticker}</span>
-        </h3>
-        <p class="muted">Estratégias: ${stockEntry.strategies.join(', ')}</p>
+    // Avg metrics
+    const dyValues = visible.map((s) => asNumber(getPathValue(s, ['Indicadores fundamentalistas', 'Div. Yield']), null)).filter((v) => v !== null && Number.isFinite(v));
+    const plValues = visible.map((s) => asNumber(getPathValue(s, ['Indicadores fundamentalistas', 'P/L']), null)).filter((v) => v !== null && Number.isFinite(v));
+    const roicValues = visible.map((s) => asNumber(getPathValue(s, ['Oscilações', 'ROIC']), null)).filter((v) => v !== null && Number.isFinite(v));
+    const avgDY = dyValues.length ? (dyValues.reduce((a, b) => a + b, 0) / dyValues.length).toFixed(2) : 'N/D';
+    const avgPL = plValues.length ? (plValues.reduce((a, b) => a + b, 0) / plValues.length).toFixed(2) : 'N/D';
+    const avgROIC = roicValues.length ? (roicValues.reduce((a, b) => a + b, 0) / roicValues.length).toFixed(2) : 'N/D';
+
+    // Risk bar
+    const riskProfile = computeRiskProfile(visible);
+    const total = visible.length || 1;
+    const lowPct = ((riskProfile.counts.BAIXO / total) * 100).toFixed(0);
+    const medPct = ((riskProfile.counts['MÉDIO'] / total) * 100).toFixed(0);
+    const highPct = ((riskProfile.counts.ALTO / total) * 100).toFixed(0);
+
+    // Top 5 tickers with overlap markers
+    const top5 = visible.slice(0, 5).map((s) => s.Papel).filter(Boolean);
+    const top5Html = top5.map((ticker) => {
+      const inOtherStrategies = allTickerSets.filter((set) => set.has(ticker)).length;
+      const isOverlap = inOtherStrategies > 1;
+      const cls = isOverlap ? 'comparison-ticker overlap ticker-link' : 'comparison-ticker ticker-link';
+      return `<span class="${cls}" data-ticker="${ticker}">${ticker}</span>`;
+    }).join('');
+
+    col.innerHTML = `
+      <h3>${strategy.name}</h3>
+      <p class="comparison-category">${catLabel}</p>
+      <div class="comparison-stat"><span>Ações</span><span class="comparison-stat-value">${visible.length}</span></div>
+      <div class="comparison-stat"><span>DY médio</span><span class="comparison-stat-value">${avgDY}</span></div>
+      <div class="comparison-stat"><span>P/L médio</span><span class="comparison-stat-value">${avgPL}</span></div>
+      <div class="comparison-stat"><span>ROIC médio</span><span class="comparison-stat-value">${avgROIC}</span></div>
+      <div class="comparison-risk-bar">
+        <div class="bar-low" style="flex:${lowPct}"></div>
+        <div class="bar-med" style="flex:${medPct}"></div>
+        <div class="bar-high" style="flex:${highPct}"></div>
       </div>
-      <div class="stock-actions">
-        <span class="risk-badge ${riskClass(risk.risk_level)}">${risk.risk_level}</span>
-      </div>
+      <div style="margin-top:0.35rem">${top5Html}</div>
     `;
 
-    container.appendChild(card);
+    if (onTickerClick) {
+      col.querySelectorAll('.ticker-link').forEach((el) => {
+        el.addEventListener('click', () => onTickerClick(el.dataset.ticker));
+      });
+    }
+
+    columns.appendChild(col);
+  }
+  container.appendChild(columns);
+
+  // Result section
+  const result = document.createElement('div');
+  result.className = 'comparison-result';
+
+  const modeLabel = mode === 'AND' ? 'Interseção' : 'União';
+  const resultTickerHtml = resultTickers.map((ticker) => {
+    return `<span class="comparison-ticker ticker-link" data-ticker="${ticker}">${ticker}</span>`;
+  }).join('');
+
+  result.innerHTML = `
+    <h3>${modeLabel}: ${resultTickers.length} ações</h3>
+    <div class="comparison-controls">
+      <label>Modo:</label>
+      <select id="comparison-mode-select">
+        <option value="AND" ${mode === 'AND' ? 'selected' : ''}>AND (interseção)</option>
+        <option value="OR" ${mode === 'OR' ? 'selected' : ''}>OR (união)</option>
+      </select>
+    </div>
+    <div>${resultTickerHtml || '<span class="muted">Nenhum ativo encontrado.</span>'}</div>
+  `;
+
+  result.querySelector('#comparison-mode-select')?.addEventListener('change', (event) => {
+    onModeChange(event.target.value);
+  });
+
+  if (onTickerClick) {
+    result.querySelectorAll('.ticker-link').forEach((el) => {
+      el.addEventListener('click', () => onTickerClick(el.dataset.ticker));
+    });
   }
 
+  container.appendChild(result);
+  ensureUiEnhancements(container);
+}
+
+export function renderTickerProfile(container, tickerEntry, intelligence, onClose, onTickerClick) {
+  container.innerHTML = '';
+
+  const { ticker, company, sector, sample, fontes, appearances } = tickerEntry;
+  const risk = evaluateRisk(sample);
+
+  // Metrics
+  const pl = asNumber(getPathValue(sample, ['Indicadores fundamentalistas', 'P/L']), null);
+  const pvp = asNumber(getPathValue(sample, ['Indicadores fundamentalistas', 'P/VP']), null);
+  const dy = asNumber(getPathValue(sample, ['Indicadores fundamentalistas', 'Div. Yield']), null);
+  const roic = asNumber(getPathValue(sample, ['Oscilações', 'ROIC']), null);
+  const margEbit = asNumber(getPathValue(sample, ['Oscilações', 'Marg. EBIT']), null);
+
+  const fmt = (v) => (v !== null && Number.isFinite(v) ? v.toFixed(2) : 'N/D');
+
+  const metricsHtml = [
+    { label: 'P/L', value: fmt(pl) },
+    { label: 'P/VP', value: fmt(pvp) },
+    { label: 'DY', value: fmt(dy) },
+    { label: 'ROIC', value: fmt(roic) },
+    { label: 'Marg. EBIT', value: fmt(margEbit) },
+    { label: 'Risco', value: risk.risk_level },
+  ].map((m) => `
+    <div class="ticker-metric">
+      <span class="ticker-metric-value">${m.value}</span>
+      <span class="ticker-metric-label">${m.label}</span>
+    </div>
+  `).join('');
+
+  // Strategy appearances table
+  const strategyRows = appearances.map((app) => {
+    const catId = categoryForStrategy(app.strategy_id);
+    return `<tr>
+      <td>${app.strategy_name}</td>
+      <td>${app.rank}/${app.total}</td>
+      <td>${catId ?? '-'}</td>
+    </tr>`;
+  }).join('');
+
+  // Anomaly summary
+  let anomalyHtml = '';
+  if (intelligence?.anomalies?.by_ticker) {
+    const entry = intelligence.anomalies.by_ticker[ticker];
+    if (entry) {
+      const details = entry.flags
+        .slice(0, 6)
+        .map((f) => {
+          const value = f.value !== undefined ? ` (${typeof f.value === 'number' ? f.value.toFixed(4) : f.value})` : '';
+          return `${f.description || f.metric}${value}`;
+        })
+        .join('; ');
+      anomalyHtml = `
+        <div class="ticker-anomaly-summary">
+          ${anomalyBadge(ticker, intelligence)}
+          <span> ${entry.flag_count} anomalia(s): ${details}</span>
+        </div>
+      `;
+    } else {
+      anomalyHtml = `<div class="ticker-anomaly-summary ticker-anomaly-clean">Nenhuma anomalia detectada.</div>`;
+    }
+  }
+
+  container.innerHTML = `
+    <div class="ticker-profile-header">
+      <button class="btn ticker-profile-back" data-action="back"><i data-lucide="arrow-left"></i> Voltar</button>
+      ${logoMarkup(ticker, 'ticker-logo', 'ticker-fallback')}
+      <h2>${ticker}</h2>
+      <p class="muted">${company} - ${sector}</p>
+    </div>
+    <div class="consensus-sources" style="margin-bottom:0.75rem">${sourceLinksMarkup(fontes)}</div>
+    <div class="ticker-metrics-grid">${metricsHtml}</div>
+    <div class="ticker-strategies-table">
+      <table class="stocks-table">
+        <thead>
+          <tr>
+            <th>Estratégia</th>
+            <th>Rank</th>
+            <th>Categoria</th>
+          </tr>
+        </thead>
+        <tbody>${strategyRows}</tbody>
+      </table>
+    </div>
+    ${anomalyHtml}
+  `;
+
+  container.querySelector('[data-action="back"]')?.addEventListener('click', onClose);
   ensureUiEnhancements(container);
 }
