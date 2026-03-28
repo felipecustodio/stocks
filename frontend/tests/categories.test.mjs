@@ -24,6 +24,16 @@ describe('categories', () => {
     }
   });
 
+  it('non-todos categories have description, keyMetrics, idealFor, and tip', () => {
+    for (const cat of CATEGORIES) {
+      if (cat.id === 'todos') continue;
+      assert.ok(cat.description, `${cat.id} missing description`);
+      assert.ok(cat.keyMetrics, `${cat.id} missing keyMetrics`);
+      assert.ok(cat.idealFor, `${cat.id} missing idealFor`);
+      assert.ok(cat.tip, `${cat.id} missing tip`);
+    }
+  });
+
   it('has a todos entry that contains no strategies', () => {
     const todos = CATEGORIES.find((c) => c.id === 'todos');
     assert.ok(todos);

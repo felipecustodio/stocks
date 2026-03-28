@@ -128,8 +128,38 @@ function renderCategoryTabs() {
 
   if (dom.categoryStory) {
     const catDef = CATEGORIES.find((c) => c.id === state.activeCategory);
-    dom.categoryStory.textContent = catDef?.story || '';
-    dom.categoryStory.style.display = catDef?.story ? '' : 'none';
+    if (catDef?.story) {
+      dom.categoryStory.style.display = '';
+      dom.categoryStory.innerHTML = `
+        <div class="category-story-main">
+          <i data-lucide="${catDef.icon}"></i>
+          <span class="category-story-text">${catDef.story}</span>
+        </div>
+        ${catDef.description ? `
+        <div class="category-detail-grid">
+          <div class="category-detail">
+            <span class="category-detail-label"><i data-lucide="info"></i> O que faz</span>
+            <span class="category-detail-value">${catDef.description}</span>
+          </div>
+          <div class="category-detail">
+            <span class="category-detail-label"><i data-lucide="bar-chart-3"></i> Métricas-chave</span>
+            <span class="category-detail-value">${catDef.keyMetrics}</span>
+          </div>
+          <div class="category-detail">
+            <span class="category-detail-label"><i data-lucide="user"></i> Ideal para</span>
+            <span class="category-detail-value">${catDef.idealFor}</span>
+          </div>
+          <div class="category-detail category-detail-tip">
+            <span class="category-detail-label"><i data-lucide="lightbulb"></i> Dica</span>
+            <span class="category-detail-value">${catDef.tip}</span>
+          </div>
+        </div>
+        ` : ''}
+      `;
+    } else {
+      dom.categoryStory.style.display = 'none';
+      dom.categoryStory.innerHTML = '';
+    }
   }
 
   if (window.lucide?.createIcons) window.lucide.createIcons();
